@@ -11,6 +11,10 @@
 #include <cstring>
 #include <limits>
 
+// Some cFE versions (e.g. draco) use compound literals in inline functions,
+// which is a GCC extension when compiled as C++
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 extern "C" {
     #include "cfe.h"
     #include "cfe_config.h"
@@ -18,6 +22,18 @@ extern "C" {
     #include "cfe_core_api_base_msgids.h"
     #include "cfe_sb.h"   // for CFE_SB_TransmitMsg
 }
+#pragma GCC diagnostic pop
+
+/*
+ * Older cFE versions (e.g. draco) do not provide the topic ID to MID value
+ * mapping macros; derive them from the platform MID base values instead.
+ */
+#ifndef CFE_PLATFORM_CMD_TOPICID_TO_MIDV
+#define CFE_PLATFORM_CMD_TOPICID_TO_MIDV(topic) (CFE_PLATFORM_CMD_MID_BASE | (topic))
+#endif
+#ifndef CFE_PLATFORM_TLM_TOPICID_TO_MIDV
+#define CFE_PLATFORM_TLM_TOPICID_TO_MIDV(topic) (CFE_PLATFORM_TLM_MID_BASE | (topic))
+#endif
 
 namespace FPrimeCfs
 {

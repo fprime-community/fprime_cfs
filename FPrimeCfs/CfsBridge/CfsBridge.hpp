@@ -9,9 +9,14 @@
 
 #include "FPrimeCfs/CfsBridge/CfsBridgeComponentAc.hpp"
 
+// Some cFE versions (e.g. draco) use compound literals in inline functions,
+// which is a GCC extension when compiled as C++
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 extern "C" {
     #include "cfe_sb.h"   // for CFE_SB_MsgId_t
 };
+#pragma GCC diagnostic pop
 
 namespace FPrimeCfs
 {
