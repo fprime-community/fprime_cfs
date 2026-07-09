@@ -21,19 +21,9 @@ extern "C" {
     #include "cfs_bridge_msgstruct.h"
     #include "cfe_core_api_base_msgids.h"
     #include "cfe_sb.h"   // for CFE_SB_TransmitMsg
+    #include "fprime_cfs_compatibility.h"
 }
 #pragma GCC diagnostic pop
-
-/*
- * Older cFE versions (e.g. draco) do not provide the topic ID to MID value
- * mapping macros; derive them from the platform MID base values instead.
- */
-#ifndef CFE_PLATFORM_CMD_TOPICID_TO_MIDV
-#define CFE_PLATFORM_CMD_TOPICID_TO_MIDV(topic) (CFE_PLATFORM_CMD_MID_BASE | (topic))
-#endif
-#ifndef CFE_PLATFORM_TLM_TOPICID_TO_MIDV
-#define CFE_PLATFORM_TLM_TOPICID_TO_MIDV(topic) (CFE_PLATFORM_TLM_MID_BASE | (topic))
-#endif
 
 namespace FPrimeCfs
 {
