@@ -7,8 +7,6 @@
 #include "FPrimeCfs/PollingTimer/PollingTimer.hpp"
 #include "Os/RawTime.hpp"
 
-#include <cstdio>
-
 namespace Svc {
 
 // ----------------------------------------------------------------------
@@ -44,7 +42,6 @@ void PollingTimer ::cycle() {
         if (now >= this->m_nextCycleTime) {
             Os::RawTime timestamp;
             timestamp.now();
-            printf("PollingTimer: Triggering cycle\n");
             this->CycleOut_out(0, timestamp);
 
             Clock::time_point nextCycleTime = this->m_nextCycleTime + this->m_interval;
