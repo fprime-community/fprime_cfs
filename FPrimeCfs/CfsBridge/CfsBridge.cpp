@@ -7,7 +7,6 @@
 #include "FPrimeCfs/CfsBridge/CfsBridge.hpp"
 #include "FPrimeCfs/CfsBridge/cfs_bridge_msgstruct.h"
 #include "Fw/Logger/Logger.hpp"
-#include "config/TransmissionTypeEnumAc.hpp"
 #include <cstring>
 #include <limits>
 
@@ -37,11 +36,11 @@ CfsBridge ::CfsBridge(const char *const compName) : CfsBridgeComponentBase(compN
 CfsBridge ::~CfsBridge() {}
 
 CFE_Status_t CfsBridge ::configure(const FwSizeType pipeDepth, const char* pipeName, const bool paused) {
-    CFE_Status_t status = CFE_SB_CreatePipe(&this->inputPipe, pipeDepth, pipeName);
+    CFE_Status_t status = CFE_SB_CreatePipe(&this->inputPipe, static_cast<uint16>(pipeDepth), pipeName);
     if (status == CFE_SUCCESS) {
         this->m_configurationState = CONFIGURED;
     }
-    this->m_flow = paused;
+    this->m_flowControlled = paused;
     return status;
 }
 
@@ -95,7 +94,7 @@ CFE_SB_MsgId_t CfsBridge ::getCfsMessageId(const ComCfg::Apid::T apid) {
 }
 
 void CfsBridge ::poll() {
-    if (this->m_flow and this->m_paused) {
+    if (this->m_flowControlled and this->m_paused) {
         return;
     }
 
@@ -122,18 +121,16 @@ void CfsBridge ::poll() {
         //     we have not a lot of choice here.
         CFE_SB_MsgId_Atom_t message_id_value = CFE_SB_MsgIdToValue(message_id);
         ComCfg::Apid apid = static_cast<ComCfg::Apid::T>(message_id_value & 0x7FF);
-        FW_ASSERT(CFE_SB_MsgIdToValue(message_id) == CFE_SB_MsgIdToValue(this->getCfsMessageId(apid.e)));
-        if (apid.isValid() and (not this->m_flow or not this->m_paused)) {
-            context.set_apid(apid);
-            this->m_paused = true;
-            // Send the message out of this port
-            this->dataOut_out(0, fwBuffer, context);
-        } else if (not apid.isValid()) {
+        // The message id must map to a valid APID that maps back to the same message id. Messages from the software
+        // bus are external input and thus are dropped with an error rather than asserted on.
+        if ((not apid.isValid()) or (message_id_value != CFE_SB_MsgIdToValue(this->getCfsMessageId(apid.e)))) {
             Fw::Logger::log("[ERROR] Received message with invalid APID: 0x%08x\n", message_id_value);
             return;
-        } else if (this->m_flow and this->m_paused) {
-            Fw::Logger::log("[INFO] Received message with APID: 0x%08x but currently paused. Message will not be sent out.\n", apid.e);
         }
+        context.set_apid(apid);
+        this->m_paused = true;
+        // Send the message out of this port
+        this->dataOut_out(0, fwBuffer, context);
     } else if (status != CFE_SB_NO_MESSAGE) {
         Fw::Logger::log("[ERROR] Error receiving message from cFS pipe: 0x%08x\n", status);
     }
@@ -145,8 +142,6 @@ void CfsBridge ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const Com
     ComCfg::Apid::T apid = context.get_apid();
     size_t header_size = 0;
     CFE_MSG_Message_t* message_pointer = nullptr;
-
-    Fw::Success comStatus = Fw::Success::SUCCESS; // Always return success as SB doesn't need retries
 
     switch (apid) {
         // Uplink entities are "commands"
@@ -161,44 +156,32 @@ void CfsBridge ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const Com
             break;
     }
 
-    // First, check for overflows before attempting to creat a cFS message that is too-large
-    if (std::numeric_limits<CFE_MSG_Size_t>::max() - header_size < data.getSize()) {
-        this->dataReturnOut_out(0, data, context);
-        if (this->isConnected_comStatusOut_OutputPort(0)) {
-            this->comStatusOut_out(0, comStatus);
-        }
-        return;
-    }
-    CFE_MSG_Size_t message_size = header_size + data.getSize();
-    CFE_SB_MsgId_t message_id = this->getCfsMessageId(apid);
+    // First, check for overflows before attempting to create a cFS message that is too-large. Data too large for a
+    // cFS message is dropped with an error.
+    if (std::numeric_limits<CFE_MSG_Size_t>::max() - header_size >= data.getSize()) {
+        CFE_MSG_Size_t message_size = header_size + data.getSize();
+        CFE_SB_MsgId_t message_id = this->getCfsMessageId(apid);
 
-    // Initialize the cFS message with the appropriate header and size
-    CFE_Status_t status = CFE_MSG_Init(message_pointer,  message_id, message_size);
-    if (status != CFE_SUCCESS)
-    {
-        this->dataReturnOut_out(0, data, context);
-        if (this->isConnected_comStatusOut_OutputPort(0)) {
-            this->comStatusOut_out(0, comStatus);
+        // Initialize the cFS message with the appropriate header and size
+        CFE_Status_t status = CFE_MSG_Init(message_pointer, message_id, message_size);
+        if (status == CFE_SUCCESS) {
+            // Copy the message into the buffer for transmission
+            std::memcpy(reinterpret_cast<U8*>(message_pointer) + header_size, data.getData(), data.getSize());
+            status = CFE_SB_TransmitMsg(reinterpret_cast<CFE_MSG_Message_t*>(&message), this->m_incrementSequenceCount);
         }
-        return;
-    }
-    // Copy the message into the buffer for transmission
-    std::memcpy(reinterpret_cast<U8*>(message_pointer) + header_size, data.getData(), data.getSize());
-
-    status = CFE_SB_TransmitMsg(reinterpret_cast<CFE_MSG_Message_t*>(&message), this->m_source);
-    if (status != CFE_SUCCESS)
-    {
-        this->dataReturnOut_out(0, data, context);
-        if (this->isConnected_comStatusOut_OutputPort(0)) {
-            this->comStatusOut_out(0, comStatus);
+        if (status != CFE_SUCCESS) {
+            Fw::Logger::log("[ERROR] Failed to transmit message with APID 0x%04x to software bus: 0x%08x\n", apid, status);
         }
-        return;
+    } else {
+        Fw::Logger::log("[ERROR] Data with APID 0x%04x too large for a cFS message\n", apid);
     }
+    // Ownership of the data is always returned to the sender, and com status always reports success as the software
+    // bus does not support retries
     this->dataReturnOut_out(0, data, context);
     if (this->isConnected_comStatusOut_OutputPort(0)) {
+        Fw::Success comStatus = Fw::Success::SUCCESS;
         this->comStatusOut_out(0, comStatus);
     }
-    return;
 }
 
 void CfsBridge ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer &data, const ComCfg::FrameContext &context)

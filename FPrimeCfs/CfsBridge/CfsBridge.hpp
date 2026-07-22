@@ -43,8 +43,9 @@ class CfsBridge final : public CfsBridgeComponentBase
 
     //! Configure the cFS bridge component
     //!
-    //! This method configures the cFS bridge component with the specific pipe depth. It allows for starting in a paused
-    //! state pending on the receipt of a port call to unpuase.
+    //! This method configures the cFS bridge component with the specific pipe depth and name. When `paused` is true,
+    //! flow control is enabled: deframed messages are held until a comStatusIn success signal is received, and one
+    //! message is sent per received signal.
     CFE_Status_t configure(const FwSizeType pipeDepth, const char* pipeName = "CFS_BRIDGE_PIPE", bool paused = false);
 
     //! Subscribe to a cFS message with the supplied F Prime apid
@@ -97,12 +98,10 @@ private:
     CFE_SB_PipeId_t inputPipe;
 
     ConfigurationState m_configurationState = UNCONFIGURED;  //!< Tracks the configuration state of the component to ensure proper ordering of operations
-    U16 m_defaultCommandMessageId = 1;  // TODO: fix these defaults
-    U16 m_defaultTelemetryMessageId = 1; // TODO: fix these defaults
-    bool m_source = true;
-    bool m_prerolled = false;
-    bool m_paused = true;
-    bool m_flow = false;
+    bool m_incrementSequenceCount = true;  //!< Passed to CFE_SB_TransmitMsg to update the sequence count on transmission
+    bool m_prerolled = false;  //!< Initial comStatusOut signal has been sent to enable downstream data flow
+    bool m_paused = true;  //!< Awaiting a comStatusIn success before sending the next deframed message
+    bool m_flowControlled = false;  //!< When true, deframed messages are gated by comStatusIn signals
 };
 
 } // namespace FPrimeCfs
