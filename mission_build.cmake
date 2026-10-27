@@ -16,3 +16,6 @@ generate_config_includefile(
     FILE_NAME     "fprime_cfs_compatibility.h"
     FALLBACK_FILE "${CMAKE_CURRENT_LIST_DIR}/config/default_fprime_cfs_compatibility.h"
 )
+
+# Hand the mission-level F Prime library list to the arch builds, where F Prime is loaded
+list(APPEND EXPORT_VARLIST FPRIME_LIBRARY_LOCATIONS)
