@@ -23,10 +23,12 @@ struct CreatePipeCall {
     char name[64];
 };
 
-//! Record of a CFE_SB_Subscribe call
+//! Record of a CFE_SB_SubscribeEx call
 struct SubscribeCall {
     CFE_SB_MsgId_Atom_t msgIdValue;
     CFE_SB_PipeId_t pipeId;
+    CFE_SB_Qos_t quality;
+    uint16 msgLim;
 };
 
 //! Record of a CFE_SB_TransmitMsg call

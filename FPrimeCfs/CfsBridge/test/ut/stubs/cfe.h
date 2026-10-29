@@ -41,6 +41,11 @@ typedef struct {
     CFE_SB_MsgId_Atom_t Value;
 } CFE_SB_MsgId_t;
 
+typedef struct {
+    uint8 Priority;
+    uint8 Reliability;
+} CFE_SB_Qos_t;
+
 #include "cfe_msg_hdr.h"
 
 typedef union {
@@ -61,7 +66,7 @@ static inline CFE_SB_MsgId_Atom_t CFE_SB_MsgIdToValue(CFE_SB_MsgId_t msgId) {
 
 /* Software bus API (implemented by CfeStubs.cpp) */
 CFE_Status_t CFE_SB_CreatePipe(CFE_SB_PipeId_t* pipeIdPtr, uint16 depth, const char* pipeName);
-CFE_Status_t CFE_SB_Subscribe(CFE_SB_MsgId_t msgId, CFE_SB_PipeId_t pipeId);
+CFE_Status_t CFE_SB_SubscribeEx(CFE_SB_MsgId_t msgId, CFE_SB_PipeId_t pipeId, CFE_SB_Qos_t quality, uint16 msgLim);
 CFE_Status_t CFE_SB_ReceiveBuffer(CFE_SB_Buffer_t** bufPtr, CFE_SB_PipeId_t pipeId, int32 timeOut);
 CFE_Status_t CFE_SB_TransmitMsg(const CFE_MSG_Message_t* msgPtr, bool incrementSequenceCount);
 

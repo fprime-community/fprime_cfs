@@ -162,6 +162,39 @@ void CfsBridgeTester ::testSubscribeFailure() {
     ASSERT_EQ(CfeStub::state().receiveCount, 0u);
 }
 
+void CfsBridgeTester ::testSubscribeMessageLimit() {
+    // Use a depth above the cFE default per-message-ID limit (4) so a default subscription would be caught
+    const uint16 depth = 32;
+    ASSERT_EQ(this->component.configure(depth, "TEST_PIPE"), CFE_SUCCESS);
+    ASSERT_EQ(this->component.subscribe(ComCfg::Apid::FW_PACKET_COMMAND), CFE_SUCCESS);
+    ASSERT_EQ(this->component.subscribeCfs(ComCfg::Apid::FW_PACKET_TELEM, CfsBridge::CfsMessageType::TELEMETRY),
+              CFE_SUCCESS);
+    ASSERT_EQ(CfeStub::state().subscribeCount, 2u);
+    for (U32 i = 0; i < 2; i++) {
+        const CfeStub::SubscribeCall& call = CfeStub::state().subscribeCalls[i];
+        ASSERT_EQ(call.pipeId, CfeStub::state().subscribeCalls[0].pipeId);
+        ASSERT_EQ(call.msgLim, depth);
+        // Default quality of service
+        ASSERT_EQ(call.quality.Priority, 0u);
+        ASSERT_EQ(call.quality.Reliability, 0u);
+    }
+}
+
+void CfsBridgeTester ::testSubscribeExplicitMessageLimit(const U16 limit) {
+    const uint16 depth = 32;
+    ASSERT_EQ(this->component.configure(depth, "TEST_PIPE"), CFE_SUCCESS);
+    ASSERT_EQ(this->component.subscribe(ComCfg::Apid::FW_PACKET_COMMAND, limit), CFE_SUCCESS);
+    ASSERT_EQ(this->component.subscribeCfs(ComCfg::Apid::FW_PACKET_TELEM, CfsBridge::CfsMessageType::TELEMETRY, limit),
+              CFE_SUCCESS);
+    ASSERT_EQ(CfeStub::state().subscribeCount, 2u);
+    for (U32 i = 0; i < 2; i++) {
+        const CfeStub::SubscribeCall& call = CfeStub::state().subscribeCalls[i];
+        ASSERT_EQ(call.msgLim, limit);
+        ASSERT_EQ(call.quality.Priority, 0u);
+        ASSERT_EQ(call.quality.Reliability, 0u);
+    }
+}
+
 // ----------------------------------------------------------------------
 // Tests: transmit (dataIn -> software bus)
 // ----------------------------------------------------------------------

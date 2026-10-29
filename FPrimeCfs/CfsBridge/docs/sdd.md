@@ -76,6 +76,7 @@ match the downstream pipeline (e.g. a deframer/router stack).
 | FPRIMECFS-CFSBRIDGE-012 | When configured with F Prime command wrapping enabled, `CfsBridge` shall transmit each F Prime command space packet (packet type command, no secondary header) as a valid cFS command packet: secondary header flag set, length field adjusted, and a 2-byte cFS command secondary header (function code `ComCfg.FprimeCommandFunctionCode` and a valid cFS XOR checksum) inserted between the primary header and the payload; telemetry packets and packets already carrying a secondary header shall be transmitted unmodified, and packets too large to wrap shall be dropped with a logged error | Unit test |
 | FPRIMECFS-CFSBRIDGE-013 | `CfsBridge` shall perform one `process()` call (drain the message queue and poll the software bus pipe once) for each invocation of `schedIn`, allowing rate-group driven operation | Unit test |
 | FPRIMECFS-CFSBRIDGE-014 | When `bufferAllocate` is connected, `CfsBridge` shall copy each received software bus message into an allocated buffer before emitting it on `dataOut`, shall deallocate the buffer when returned on `dataReturnIn`, and shall drop the message with a logged error when allocation fails | Unit test |
+| FPRIMECFS-CFSBRIDGE-015 | `CfsBridge` shall subscribe with a per-message-ID message limit equal to the `msgLimit` argument when one is given to `subscribe()` or `subscribeCfs()` (including 0), and otherwise equal to the configured pipe depth | Unit test |
 
 ## Design
 
@@ -125,6 +126,20 @@ downstream deframer (e.g. `Svc::Ccsds::SpacePacketDeframer`) can validate the pr
 derive the APID and secondary-header presence. Since software bus messages are external input, a
 message whose size cannot be read is dropped with a logged error rather than asserted upon.
 
+### Subscriptions
+
+`subscribe()` and `subscribeCfs()` use `CFE_SB_SubscribeEx()` with the default quality of service.
+The per-message-ID message limit (the most messages of that ID queued in the pipe at once) is the
+`msgLimit` argument of the `subscribe(apid, msgLimit)` / `subscribeCfs(apid, type, msgLimit)`
+overloads, or the configured pipe depth when it is not given. `CFE_SB_Subscribe()` would limit each
+message ID to `CFE_PLATFORM_SB_DEFAULT_MSG_LIMIT` (4 by default) queued messages, so a burst of more
+messages of one ID (e.g. the events produced by one command) than that limit would be dropped by the
+software bus ("Msg Limit Err") while the pipe still had room.
+
+A `msgLimit` of 0 is passed to cFE unchanged: cFE then rejects every message of that ID and emits a
+"Msg Limit Err" event for each one. To stop receiving a message ID, do not subscribe to it (or
+unsubscribe) rather than subscribing with a limit of 0.
+
 ### Flow control
 
 `configure(..., paused=true)` enables flow control. While paused, `poll()` does not read from the
@@ -163,3 +178,5 @@ Coverage: 100% lines, 100% functions.
 | 2026-08-04 | Add `schedIn` port for rate-group driven operation (one `process()` per tick); bound the `dataIn` packet loop by the maximum packet count |
 | 2026-08-04 | Add `bufferAllocate`/`bufferDeallocate` ports: received SB messages are copied into allocated buffers so downstream consumers may hold them past the polling cycle |
 | 2026-08-05 | Source the wrapped-command function code from the `ComCfg.FprimeCommandFunctionCode` dictionary constant instead of a local constant |
+| 2026-10-29 | Subscribe with a per-message-ID limit equal to the pipe depth (`CFE_SB_SubscribeEx`) instead of the cFE default limit of 4 |
+| 2026-10-29 | Add `subscribe()` / `subscribeCfs()` overloads taking an explicit per-message-ID `msgLimit`; the existing overloads keep the pipe-depth limit |

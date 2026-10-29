@@ -79,9 +79,17 @@ class CfsBridge final : public CfsBridgeComponentBase
 
     //! Subscribe to a cFS message with the supplied F Prime apid
     //!
-    //! Subscribe to the message-bus for messages with the given APID.  If messages are available, they will be processed
-    //! in the components processQueue() function and sent out the dataOut port.
+    //! Subscribe to the message-bus for messages with the given APID.  If messages are available, they will be
+    //! processed in the components processQueue() function and sent out the dataOut port. Up to the configured pipe
+    //! depth of messages of this message ID may be queued.
     CFE_Status_t subscribe(const ComCfg::Apid::T apid);
+
+    //! Subscribe to a cFS message with the supplied F Prime apid and per-message-ID limit
+    //!
+    //! As subscribe(apid), but at most `msgLimit` messages of this message ID may be queued in the pipe at once. A
+    //! `msgLimit` of 0 is passed through to cFE, which then rejects every message of this ID with a "Msg Limit Err"
+    //! event; do not subscribe (or unsubscribe) to turn a message ID off.
+    CFE_Status_t subscribe(const ComCfg::Apid::T apid, const U16 msgLimit);
 
     //! Subscribe to a cFS command or telemetry message with the supplied F Prime apid
     //!
@@ -89,7 +97,15 @@ class CfsBridge final : public CfsBridgeComponentBase
     //! ID is formed: COMMAND sets both the packet type bit and the secondary header flag (e.g. scheduler (SCH)
     //! wakeup messages), while TELEMETRY sets only the secondary header flag (e.g. housekeeping telemetry).
     //! Received messages will be processed in the component's process() function and sent out the dataOut port.
+    //! Up to the configured pipe depth of messages of this message ID may be queued.
     CFE_Status_t subscribeCfs(const ComCfg::Apid::T apid, const CfsMessageType type);
+
+    //! Subscribe to a cFS command or telemetry message with the supplied F Prime apid and per-message-ID limit
+    //!
+    //! As subscribeCfs(apid, type), but at most `msgLimit` messages of this message ID may be queued in the pipe at
+    //! once. A `msgLimit` of 0 is passed through to cFE, which then rejects every message of this ID with a
+    //! "Msg Limit Err" event; do not subscribe (or unsubscribe) to turn a message ID off.
+    CFE_Status_t subscribeCfs(const ComCfg::Apid::T apid, const CfsMessageType type, const U16 msgLimit);
 
     //! Process messages in the component's queue and the cFS software bus
     //!
@@ -103,6 +119,9 @@ class CfsBridge final : public CfsBridgeComponentBase
 private:
     //! Helper to get cFS message ID or default
     CFE_SB_MsgId_t getCfsMessageId(const ComCfg::Apid::T apid);
+
+    //! Helper to subscribe the input pipe to a message ID, allowing up to msgLimit queued messages for it
+    CFE_Status_t subscribeMessageId(const CFE_SB_MsgId_t msgId, const U16 msgLimit);
 
     //! Helper to poll the cFS software bus for a message
     void poll();
@@ -147,6 +166,7 @@ private:
                              Fw::Success &status) override;
 
     CFE_SB_PipeId_t m_inputPipe = {};  //!< Software bus pipe for receiving subscribed messages
+    U16 m_pipeDepth = 0;  //!< Depth of the input pipe, also the default per-message-ID limit of each subscription
 
     ConfigurationState m_configurationState = UNCONFIGURED;  //!< Tracks the configuration state of the component to ensure proper ordering of operations
     bool m_prerolled = false;  //!< Initial comStatusOut signal has been sent to enable downstream data flow

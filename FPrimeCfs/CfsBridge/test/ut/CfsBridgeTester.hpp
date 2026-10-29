@@ -51,6 +51,12 @@ class CfsBridgeTester final : public CfsBridgeGTestBase {
     //! Subscribe returns the software bus error on subscription failure
     void testSubscribeFailure();
 
+    //! Subscriptions allow as many queued messages per message ID as the configured pipe depth
+    void testSubscribeMessageLimit();
+
+    //! Subscriptions with an explicit message limit pass exactly that limit, including 0
+    void testSubscribeExplicitMessageLimit(const U16 limit);
+
     // ----------------------------------------------------------------------
     // Tests: transmit (dataIn -> software bus)
     // ----------------------------------------------------------------------

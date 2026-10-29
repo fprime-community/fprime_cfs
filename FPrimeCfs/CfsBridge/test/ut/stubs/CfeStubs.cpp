@@ -78,12 +78,14 @@ CFE_Status_t CFE_SB_CreatePipe(CFE_SB_PipeId_t* pipeIdPtr, uint16 depth, const c
     return s.createPipeStatus;
 }
 
-CFE_Status_t CFE_SB_Subscribe(CFE_SB_MsgId_t msgId, CFE_SB_PipeId_t pipeId) {
+CFE_Status_t CFE_SB_SubscribeEx(CFE_SB_MsgId_t msgId, CFE_SB_PipeId_t pipeId, CFE_SB_Qos_t quality, uint16 msgLim) {
     CfeStub::State& s = CfeStub::s_state;
     if (s.subscribeCount < CfeStub::STUB_MAX_ENTRIES) {
         CfeStub::SubscribeCall& call = s.subscribeCalls[s.subscribeCount];
         call.msgIdValue = msgId.Value;
         call.pipeId = pipeId;
+        call.quality = quality;
+        call.msgLim = msgLim;
     }
     s.subscribeCount++;
     return s.subscribeStatus;
