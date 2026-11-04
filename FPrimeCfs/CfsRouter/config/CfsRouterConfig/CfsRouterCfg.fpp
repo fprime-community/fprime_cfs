@@ -30,7 +30,7 @@ module FPrimeCfs {
     @ This default configuration routes F Prime commands and file packets;
     @ projects override with their own cFS APIDs and routes.
     constant CFS_ROUTER_ROUTE_TABLE = [
-        { apid = ComCfg.Apid.FW_PACKET_COMMAND, functionCode = 0, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_COMMAND, functionCode = ComCfg.FprimeCommandFunctionCode, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
         { apid = ComCfg.Apid.FW_PACKET_FILE,    functionCode = 0, routeType = CfsRouteType.FILE,           portIndex = 0 },
     ]
 }

@@ -18,7 +18,6 @@ namespace FPrimeCfs
 //! Size in bytes of the cFS command secondary header ({U8 FunctionCode, U8 Checksum})
 constexpr FwSizeType CFS_ROUTER_CMD_SEC_HDR_SIZE = 2;
 
-//! Size in bytes of the cFS telemetry secondary header (4-byte seconds, 2-byte subseconds)
 //! cFE telemetry secondary header: 6-byte time plus the 4 spare bytes of CFE_MSG_TelemetryHeader_t
 constexpr FwSizeType CFS_ROUTER_TLM_SEC_HDR_SIZE = 10;
 
@@ -64,7 +63,7 @@ private:
     // Helpers
     // ----------------------------------------------------------------------
 
-    //! Look up the routing table entry for an APID; nullptr if not present
+    //! Look up the routing table entry for an APID (and function code for commands); nullptr if none
     const CfsRouteEntry *findRoute(ComCfg::Apid::T apid, bool isCommand, U8 functionCode) const;
 
     //! Return the incoming buffer to the sender with the context it was received with

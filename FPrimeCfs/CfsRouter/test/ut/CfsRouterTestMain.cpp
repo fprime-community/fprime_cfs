@@ -142,3 +142,11 @@ int main(int argc, char **argv)
     STest::Random::seed();
     return RUN_ALL_TESTS();
 }
+
+TEST(Nominal, LiteralChecksumVector)
+{
+    COMMENT("A hand-computed CFE_MSG checksum vector is accepted and a one-bit payload corruption is rejected");
+    REQUIREMENT("FPRIMECFS-CFSROUTER-003");
+    FPrimeCfs::CfsRouterTester tester;
+    tester.testLiteralChecksumVector();
+}

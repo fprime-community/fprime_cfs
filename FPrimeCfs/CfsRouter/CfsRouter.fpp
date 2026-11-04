@@ -71,7 +71,7 @@ module FPrimeCfs {
         # Events
         # ----------------------------------------------------------------------
 
-        @ An error occurred while copying a command packet into a com buffer
+        @ A command packet failed cFS checksum verification and was dropped before routing
         event BadChecksum(
                 apid: U16           @< The APID of the command
                 functionCode: U8    @< The function code of the command
@@ -80,6 +80,7 @@ module FPrimeCfs {
             severity warning high \
             format "Command with APID {} function code {} dropped: bad checksum (residual {})"
 
+        @ A packet matched no routing table entry and was forwarded on unknownDataOut
         event NoRoute(
                 apid: U16           @< The APID of the packet
                 functionCode: U8    @< The function code of the packet (zero for non-command packets)
@@ -87,13 +88,22 @@ module FPrimeCfs {
             severity warning low \
             format "Packet with APID {} function code {} has no route; forwarded on unknownDataOut"
 
+        @ An error occurred while copying a command packet into a com buffer
         event SerializationError(
                 status: U32 @< The status of the operation
             ) \
             severity warning high \
             format "Serializing com buffer failed with status {}"
 
-        @ A packet routed as a cFS command or telemetry message is missing its secondary header
+        @ A command packet is missing the cFS command secondary header and was forwarded on unknownDataOut
+        event CommandMissingSecondaryHeader(
+                apid: U16       @< The APID of the packet
+                dataSize: U32   @< The size of the packet data in bytes
+            ) \
+            severity warning high \
+            format "Command with APID {} ({} bytes) has no cFS command secondary header; forwarded on unknownDataOut"
+
+        @ A packet routed as a cFS telemetry message is missing its secondary header
         event MissingSecondaryHeader(
                 apid: U16       @< The APID of the packet
                 dataSize: U32   @< The size of the packet data in bytes

@@ -63,6 +63,7 @@ public:
 
     //! cFS routes without a secondary header go to unknown with a warning event
     void testMissingSecondaryHeader();
+    void testLiteralChecksumVector();
 
     //! cFS routes whose data is too small for the secondary header go to unknown with a warning
     void testShortSecondaryHeader();

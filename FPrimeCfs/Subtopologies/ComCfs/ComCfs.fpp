@@ -80,7 +80,8 @@ module ComCfs {
     #   framers (FPrimeCfs.CfsCmdFramer and FPrimeCfs.CfsTlmFramer), which feed the
     #   space packet framer, and finally the CfsBridge onto the cFS software bus.
     # - Uplink: the CfsBridge feeds the space packet deframer, followed by the
-    #   code routing) ahead of commanding.
+    #   CfsRouter, which verifies command checksums and routes by (APID, function
+    #   code) for commands and by APID for telemetry, ahead of commanding.
     topology Subtopology {
         # Queued Components
         instance cfsBridge
@@ -211,14 +212,12 @@ module ComCfs {
         @ Input port receiving back buffer ownership from the file handling stack
         port fileUplinkReturnIn = cfsRouter.fileBufferReturnIn
 
-        @ Output port array sending function-code-routed messages as Fw::ComBuffers
-        @ (e.g. to an F Prime command dispatcher)
+        @ Output port forwarding packets with no configured route (unknown APID, or unknown
+        @ APID / function code for commands) together with their frame context
+        port unknownDataOut = cfsRouter.unknownDataOut
 
-        @ Input port receiving command response messages back into the command router
-
-        @ Output port array sending function-code-routed payloads (function code + payload)
-
-        @ Output port forwarding messages with no configured function code route
+        @ Input port receiving back ownership of buffers sent on unknownDataOut
+        port unknownDataReturnIn = cfsRouter.dataReturnIn
 
 
         # ----------------------------------------------------------------------

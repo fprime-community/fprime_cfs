@@ -40,6 +40,12 @@ Both instances connect `bufferAllocate` / `bufferDeallocate` to a buffer manager
 Both inputs copy the incoming data into a buffer allocated via `bufferAllocate`:
 
 - `cfsCommandIn` buffers are returned to the sender on `bufferReturnOut` before the handler returns.
+- `cfsDataIn` (`Svc.ComDataWithContext`) accepts a raw payload together with a source-built `ComCfg::FrameContext`:
+  the source sets `apid` (and `functionCode` for commands) and the bridge forwards the context unchanged to the
+  framer stage, so one bridge instance can serve many destination message ids. The payload is copied into the
+  bridge's buffer and the source buffer is returned on `cfsDataReturnOut` before the handler returns (also when the
+  allocation fails). The `ComCfs` subtopology exposes this port on both bridges as `cfsCommandDataIn` /
+  `cfsCommandDataReturnOut` and `cfsTelemetryDataIn` / `cfsTelemetryDataReturnOut`.
 - `comIn` receives `Fw::ComBuffer` by value; no return is needed.
 - Buffers coming back on `dataReturnIn` are deallocated via `bufferDeallocate`.
 - If allocation fails (undersized buffer), the data is dropped with an `AllocationFailed` warning event and any

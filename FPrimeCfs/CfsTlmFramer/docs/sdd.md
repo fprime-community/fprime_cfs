@@ -8,10 +8,10 @@ result, once the downstream framer prepends the CCSDS primary header, is a valid
 ## Usage
 
 ```
-Svc.ComQueue.dataOut -> CfsTlmFramer.dataIn
+CfsAppBridge.dataOut -> CfsTlmFramer.dataIn
 CfsTlmFramer.dataOut -> Svc.Ccsds.SpacePacketFramer.dataIn
 Svc.Ccsds.SpacePacketFramer.dataReturnOut -> CfsTlmFramer.dataReturnIn
-CfsTlmFramer.dataReturnOut -> Svc.ComQueue.dataReturnIn
+CfsTlmFramer.dataReturnOut -> CfsAppBridge.dataReturnIn
 CfsTlmFramer.bufferAllocate / bufferDeallocate -> [buffer manager]
 CfsTlmFramer.cfsTimeConvert -> [FPrimeCfs.CfsSystemTime or equivalent]
 ```
@@ -28,8 +28,11 @@ descriptor, an id, and an `Fw.Time` time tag, in that order; only the id width d
 - `FW_PACKET_TELEM` (telemetry channels): `FwChanIdType` id (the time of the first entry is used)
 - `FW_PACKET_PACKETIZED_TLM`: `FwTlmPacketizeIdType` id
 
-If the descriptor is not one of these, or the packet is too short, the current system time is used instead and a
-`TimeExtractionFailed` warning event is emitted. The original packet bytes are always forwarded unchanged after
+If the packet's APID is an F Prime packet APID but the descriptor is not one of these, or the packet is too short,
+the current system time is used instead and a `TimeExtractionFailed` warning event is emitted. Packets whose APID is
+not an F Prime packet APID (raw cFS telemetry handed in through `CfsAppBridge.cfsDataIn` with a source-set APID)
+are time-tagged with the current system time without any warning. The framer also sets `pktType` to
+`SPP_TELEMETRY` in the forwarded frame context so the downstream space packet framer builds a telemetry packet. The original packet bytes are always forwarded unchanged after
 the secondary header.
 
 ## Time conversion

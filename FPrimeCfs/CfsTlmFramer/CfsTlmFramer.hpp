@@ -11,7 +11,6 @@
 namespace FPrimeCfs
 {
 
-//! Size in bytes of the cFS telemetry secondary header (4-byte seconds, 2-byte subseconds)
 //! cFE telemetry secondary header: 6-byte time plus the 4 spare bytes of CFE_MSG_TelemetryHeader_t
 constexpr FwSizeType CFS_TLM_FRAMER_TIME_SIZE    = 6;
 constexpr FwSizeType CFS_TLM_FRAMER_SEC_HDR_SIZE = 10;

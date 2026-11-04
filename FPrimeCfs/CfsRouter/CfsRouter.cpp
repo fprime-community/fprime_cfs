@@ -32,7 +32,8 @@ void CfsRouter ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const Com
         // the checksum is verified before any routing decision is made
         if ((!context.get_hasSecHdr()) || (data.getSize() < CFS_ROUTER_CMD_SEC_HDR_SIZE))
         {
-            this->log_WARNING_HI_MissingSecondaryHeader(static_cast<U16>(apid), static_cast<U32>(data.getSize()));
+            this->log_WARNING_HI_CommandMissingSecondaryHeader(static_cast<U16>(apid),
+                                                               static_cast<U32>(data.getSize()));
             this->routeUnknown(data, context);
             return;
         }
@@ -197,11 +198,11 @@ void CfsRouter ::restoreAndReturn(Fw::Buffer &returned, const ComCfg::FrameConte
 
 void CfsRouter ::routeFprimeCommand(const CfsRouteEntry &route, Fw::Buffer &data, const ComCfg::FrameContext &context)
 {
-    // A cFS-framed F Prime command carries the cFS command secondary header ahead of
-    // the F Prime command data; exclude it from the copy when present
-    const FwSizeType  offset = context.get_hasSecHdr() ? CFS_ROUTER_CMD_SEC_HDR_SIZE : 0;
+    // The handler has already required the cFS command secondary header (function code,
+    // checksum) on every command packet; exclude it from the copy
+    const FwSizeType  offset = CFS_ROUTER_CMD_SEC_HDR_SIZE;
     const FwIndexType index  = route.get_portIndex();
-    if ((data.getSize() >= offset) && this->isConnected_commandOut_OutputPort(index))
+    if (this->isConnected_commandOut_OutputPort(index))
     {
         Fw::ComBuffer             com;
         const Fw::SerializeStatus status = com.setBuff(data.getData() + offset, data.getSize() - offset);
@@ -214,24 +215,13 @@ void CfsRouter ::routeFprimeCommand(const CfsRouteEntry &route, Fw::Buffer &data
             this->log_WARNING_HI_SerializationError(static_cast<U32>(status));
         }
     }
-    else if (data.getSize() < offset)
-    {
-        this->log_WARNING_HI_MissingSecondaryHeader(static_cast<U16>(context.get_apid()),
-                                                    static_cast<U32>(data.getSize()));
-    }
     // The F Prime command route copies: ownership returns to the sender immediately
     this->returnData(data, context);
 }
 
 void CfsRouter ::routeCfsCommand(const CfsRouteEntry &route, Fw::Buffer &data, const ComCfg::FrameContext &context)
 {
-    if ((!context.get_hasSecHdr()) || (data.getSize() < CFS_ROUTER_CMD_SEC_HDR_SIZE))
-    {
-        this->log_WARNING_HI_MissingSecondaryHeader(static_cast<U16>(context.get_apid()),
-                                                    static_cast<U32>(data.getSize()));
-        this->routeUnknown(data, context);
-        return;
-    }
+    // The handler has already required and checksum-verified the cFS command secondary header
     const FwIndexType index = route.get_portIndex();
     if (!this->isConnected_cfsCommandOut_OutputPort(index))
     {

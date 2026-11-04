@@ -77,7 +77,7 @@ void CfsRouterTester ::testRouteFprimeCommand()
     this->sendData(FPRIME_CMD_APID, false, bytes, sizeof(bytes));
     ASSERT_from_commandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
-    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
     Fw::Buffer buffer = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, buffer);
     ASSERT_from_dataReturnOut_SIZE(1);
@@ -271,7 +271,8 @@ void CfsRouterTester ::testMissingSecondaryHeader()
     this->sendData(CFS_CMD_APID, false, bytes, sizeof(bytes));
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
-    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(0);
     // Return the first buffer so the pending map does not accumulate
     Fw::Buffer first = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, first);
@@ -279,7 +280,8 @@ void CfsRouterTester ::testMissingSecondaryHeader()
     this->sendData(CFS_TLM_APID, false, bytes, sizeof(bytes));
     ASSERT_from_cfsTelemetryOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(2);
-    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(2);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(1);
 }
 
 void CfsRouterTester ::testShortSecondaryHeader()
@@ -288,14 +290,15 @@ void CfsRouterTester ::testShortSecondaryHeader()
     this->sendData(CFS_CMD_APID, true, bytes, sizeof(bytes));
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
-    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
     Fw::Buffer first = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, first);
     U8 tlmBytes[CFS_ROUTER_TLM_SEC_HDR_SIZE - 1] = {};
     this->sendData(CFS_TLM_APID, true, tlmBytes, sizeof(tlmBytes));
     ASSERT_from_cfsTelemetryOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(2);
-    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(2);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_MissingSecondaryHeader_SIZE(1);
 }
 
 void CfsRouterTester ::testDisconnectedOutputs()
@@ -365,6 +368,31 @@ void CfsRouterTester ::testRandomized()
         this->clearHistory();
     }
     ASSERT_EQ(returned, 1000u);
+}
+
+void CfsRouterTester ::testLiteralChecksumVector()
+{
+    // Hand-computed per CFE_MSG: XOR of the complete packet seeded with 0xFF is zero.
+    // Primary header 18 FE C0 00 00 05 (command, sec hdr, APID 0x0FE, seq 0, length 5),
+    // secondary header {fc 0x2A, checksum 0xB2}, payload 11 22 33 44
+    U8                   bytes[6] = {0x2A, 0xB2, 0x11, 0x22, 0x33, 0x44};
+    Fw::Buffer           buffer(bytes, sizeof(bytes));
+    ComCfg::FrameContext context;
+    context.set_apid(CFS_CMD_APID);
+    context.set_hasSecHdr(true);
+    context.set_sequenceCount(0);
+    context.set_pktType(ComCfg::SppPacketType::SPP_COMMAND);
+    this->invoke_to_dataIn(0, buffer, context);
+    ASSERT_EVENTS_BadChecksum_SIZE(0);
+    ASSERT_from_cfsCommandOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).functionCode, 0x2A);
+    // One flipped payload bit must be caught
+    Fw::Buffer routed = this->fromPortHistory_cfsCommandOut->at(0).data;
+    this->invoke_to_bufferReturnIn(0, routed);
+    bytes[5] ^= 0x01;
+    this->invoke_to_dataIn(0, buffer, context);
+    ASSERT_EVENTS_BadChecksum_SIZE(1);
+    ASSERT_from_cfsCommandOut_SIZE(1);
 }
 
 } // namespace FPrimeCfs

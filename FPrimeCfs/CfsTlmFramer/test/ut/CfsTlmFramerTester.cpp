@@ -158,6 +158,13 @@ void CfsTlmFramerTester ::testRawPayloadCurrentTime()
     ASSERT_EQ(outBuffer.getSize(), 8 + CFS_TLM_FRAMER_SEC_HDR_SIZE);
     ASSERT_EQ(header[0], static_cast<U8>(seconds >> 24));
     ASSERT_EQ(header[3], static_cast<U8>(seconds & 0xFF));
+    // cFE pads CFE_MSG_TelemetryHeader_t with 4 spare bytes: payload starts 10 bytes in, spares are zero
+    ASSERT_EQ(CFS_TLM_FRAMER_SEC_HDR_SIZE, 10u);
+    for (U32 i = 6; i < 10; i++)
+    {
+        ASSERT_EQ(header[i], 0);
+    }
+    ASSERT_EQ(header[10], 0xA0);
     for (U32 i = 0; i < 8; i++)
     {
         ASSERT_EQ(header[CFS_TLM_FRAMER_SEC_HDR_SIZE + i], static_cast<U8>(0xA0 + i));

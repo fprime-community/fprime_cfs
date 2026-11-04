@@ -171,7 +171,7 @@ def test_telemetry_generation(tmp_path):
         for line in (tmp_path / "fprime-tlm.txt").read_text().splitlines()
         if not line.startswith("#")
     ]
-    # Datagram layout: 6 header + 6 cFS sec header + 2 descriptor + 2 id + 11 time +
+    # Datagram layout: 6 header + 10 cFS sec header (6 time + 4 spare) + 2 descriptor + 2 id + 11 time +
     # values, minus the 4-byte offset applied by the GUI
     assert rows[0][:4] == ["Packet Id", "14", "2", ">H"]
     assert rows[1][:4] == ["Time Seconds", "19", "4", ">I"]

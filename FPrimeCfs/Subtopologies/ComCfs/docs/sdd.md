@@ -2,7 +2,7 @@
 
 The ComCfs subtopology boxes the full communications stack of an F Prime application hosted as a cFS app. It is
 modeled after the F Prime `ComCcsds.SpacePacketFraming` subtopology, extended with the cFS secondary framers, the
-app bridges above them, the cFS-aware routers on the uplink chain, and the `FPrimeCfs.CfsBridge` at the bottom in
+app bridges above them, the cFS-aware router on the uplink chain, and the `FPrimeCfs.CfsBridge` at the bottom in
 place of a communications driver.
 
 ```mermaid
@@ -27,7 +27,7 @@ Two `FPrimeCfs.CfsAppBridge` instances feed the two cFS secondary framers:
 - `cmdBridge` accepts outgoing cFS commands (function code + payload) on the exported `cfsCommandIn` port and feeds
   the `FPrimeCfs.CfsCmdFramer`, which prepends the 2-byte cFS command secondary header.
 - `tlmBridge` accepts outgoing F Prime com buffers (telemetry, events, packetized telemetry) on the exported `comIn`
-  port array and feeds the `FPrimeCfs.CfsTlmFramer`, which prepends the 6-byte cFS telemetry secondary header. The
+  port array and feeds the `FPrimeCfs.CfsTlmFramer`, which prepends the 10-byte cFS telemetry secondary header (6-byte time plus the 4 spare bytes of `CFE_MSG_TelemetryHeader_t`). The
   telemetry framer's `cfsTimeConvert` port is exported as `cfsTimeConvertOut` and should be connected to a
   `FPrimeCfs.CfsSystemTime` instance (e.g. `CfsCore.cfsTime`).
 
@@ -86,6 +86,8 @@ be connected to release uplink flow control.
 | `bufferReturnIn` | in | Ownership return for `cfsCommandOut` / `cfsTelemetryOut` buffers |
 | `fileUplinkOut` | out | Uplinked file packets |
 | `fileUplinkReturnIn` | in | Ownership return from the file handling stack |
+| `unknownDataOut` | out | Packets with no configured route (unknown APID, or APID / function code for commands) with their frame context |
+| `unknownDataReturnIn` | in | Ownership return for `unknownDataOut` buffers |
 | `bufferManagerSchedIn` | in | Rate-group driven buffer manager telemetry |
 | `cfsBridgeSchedIn` | in | Rate-group tick driving the CfsBridge queue and software bus poll |
 | `cfsBridgeComStatusIn` | in | Releases CfsBridge uplink flow control (required when configured paused) |
