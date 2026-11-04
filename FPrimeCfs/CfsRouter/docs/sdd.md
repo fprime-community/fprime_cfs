@@ -17,16 +17,16 @@ CfsRouter.cfsCommandOut[j] / cfsTelemetryOut[k] / unknownDataOut -> [cFS-aware c
 [consumers' buffer return] -> CfsRouter.bufferReturnIn
 ```
 
-Routing is selected by a static APID routing table configured in `config/CfsRouterConfig/CfsRouterCfg.fpp`.
+Routing is selected by a static routing table keyed on APID and, for command packets, the cFS command function code, configured in `config/CfsRouterConfig/CfsRouterCfg.fpp`.
 Projects override this file (via `register_fprime_config` `CONFIGURATION_OVERRIDES`) to supply their own table,
 table size, port-array sizes, and pending-buffer limit:
 
 ```
 constant CFS_ROUTER_ROUTE_TABLE_SIZE = 3
 constant CFS_ROUTER_ROUTE_TABLE = [
-    { apid = ComCfg.Apid.FW_PACKET_COMMAND, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
-    { apid = ComCfg.Apid.SOME_CFS_CMD_APID, routeType = CfsRouteType.CFS_COMMAND,    portIndex = 0 },
-    { apid = ComCfg.Apid.SOME_CFS_TLM_APID, routeType = CfsRouteType.CFS_TELEMETRY,  portIndex = 0 },
+    { apid = ComCfg.Apid.FW_PACKET_COMMAND, functionCode = 0, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
+    { apid = ComCfg.Apid.SOME_CFS_CMD_APID, functionCode = 0, routeType = CfsRouteType.CFS_COMMAND,    portIndex = 0 },
+    { apid = ComCfg.Apid.SOME_CFS_TLM_APID, functionCode = 0, routeType = CfsRouteType.CFS_TELEMETRY,  portIndex = 0 },
 ]
 ```
 
@@ -48,13 +48,21 @@ unknown route).
 - F Prime commands framed with a cFS command header carry the 2-byte command secondary header ahead of the
   F Prime command data; it is excluded from the copied data when the context indicates one is present.
 
+## Checksum verification
+
+Command packets (frame context `pktType == SPP_COMMAND`) must carry the 2-byte cFS command secondary header
+(function code, checksum). Per `CFE_MSG` conventions the XOR of every byte of the space packet (primary header,
+secondary header, payload) with `0xFF` is zero for a valid command. The primary header was consumed by the deframer,
+so it is reconstructed from the frame context (APID, sequence count, length) for the computation. Commands failing
+the check are dropped with `BadChecksum` before any route lookup.
+
 ## Buffer ownership
 
 - F Prime command route: the packet data is copied into an `Fw::ComBuffer`; the incoming buffer is returned to the
   sender on `dataReturnOut` immediately. This is the only route that copies.
 - cFS command, cFS telemetry, and unknown routes: ownership of the (payload) buffer transfers to the receiver, and
   returns on `bufferReturnIn`, which forwards it to `dataReturnOut`. Receivers that return data together with a
-  context (such as a downstream `FPrimeCfs.CfsCmdRouter` `dataReturnOut`) may return buffers on `dataReturnIn`
+  context (such as a downstream router's `dataReturnOut`) may return buffers on `dataReturnIn`
   instead; the supplied context is ignored and the original context is restored.
 - Buffers are always returned on `dataReturnOut` with the context they were received with. For pass-through routes
   the router records the buffer-to-context association in a map (capacity `CFS_ROUTER_MAX_PENDING_BUFFERS`); if the
@@ -69,11 +77,12 @@ unknown route).
 
 | Requirement | Description | Verification Method |
 |---|---|---|
-| FPRIMECFS-CFSROUTER-001 | CfsRouter shall select a route for each message received on `dataIn` using a statically configured APID to (route type, port index) routing table. | Unit test |
+| FPRIMECFS-CFSROUTER-001 | CfsRouter shall select a route for each message received on `dataIn` using a statically configured (APID, function code) to (route type, port index) routing table, matching command packets on APID and function code and telemetry packets on APID. | Unit test |
+| FPRIMECFS-CFSROUTER-001a | CfsRouter shall verify the cFS command checksum of every command packet before routing it, and shall drop (returning the buffer to the sender) and emit a warning event for any command whose checksum is invalid. | Unit test |
 | FPRIMECFS-CFSROUTER-002 | CfsRouter shall route messages whose APID is configured as `FPRIME_COMMAND` to the configured F Prime command output port by copying the packet data into an `Fw::ComBuffer`. | Unit test |
 | FPRIMECFS-CFSROUTER-003 | CfsRouter shall route messages whose APID is configured as `CFS_COMMAND` to the configured cFS command output port, providing the function code (`U8`) parsed from the cFS command secondary header and the payload buffer. | Unit test |
 | FPRIMECFS-CFSROUTER-004 | CfsRouter shall route messages whose APID is configured as `CFS_TELEMETRY` to the configured cFS telemetry output port, providing the time parsed from the 6-byte big-endian cFS telemetry secondary header and the payload buffer. | Unit test |
-| FPRIMECFS-CFSROUTER-005 | CfsRouter shall route any message whose APID is not present in the routing table to the unknown data output port with its context. | Unit test |
+| FPRIMECFS-CFSROUTER-005 | CfsRouter shall route any message without a matching route (APID, or APID and function code for commands) to the unknown data output port with its context and emit a low-severity warning event. | Unit test |
 | FPRIMECFS-CFSROUTER-006 | CfsRouter shall route messages configured as `CFS_COMMAND` or `CFS_TELEMETRY` whose context indicates no secondary header, or whose data is too small to contain the secondary header, to the unknown data output port and emit a warning event. | Unit test |
 | FPRIMECFS-CFSROUTER-007 | For `FPRIME_COMMAND` routing, CfsRouter shall exclude the cFS command secondary header from the copied data when the context indicates one is present. | Unit test |
 | FPRIMECFS-CFSROUTER-008 | For `FPRIME_COMMAND` routing, CfsRouter shall return ownership of the received buffer to the sender immediately after copying. | Unit test |

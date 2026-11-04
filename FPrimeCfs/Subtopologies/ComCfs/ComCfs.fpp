@@ -72,7 +72,6 @@ module ComCfs {
 
     instance cfsRouter: FPrimeCfs.CfsRouter base id ComCfsConfig.BASE_ID + 0x0A000
 
-    instance cfsCmdRouter: FPrimeCfs.CfsCmdRouter base id ComCfsConfig.BASE_ID + 0x0B000
 
     # This subtopology boxes the full cFS communications stack of an F Prime cFS
     # application, modeled after ComCcsds.SpacePacketFraming:
@@ -81,7 +80,6 @@ module ComCfs {
     #   framers (FPrimeCfs.CfsCmdFramer and FPrimeCfs.CfsTlmFramer), which feed the
     #   space packet framer, and finally the CfsBridge onto the cFS software bus.
     # - Uplink: the CfsBridge feeds the space packet deframer, followed by the
-    #   FPrimeCfs.CfsRouter (APID routing) and the FPrimeCfs.CfsCmdRouter (function
     #   code routing) ahead of commanding.
     topology Subtopology {
         # Queued Components
@@ -97,7 +95,6 @@ module ComCfs {
         instance spacePacketDeframer
         instance apidManager
         instance cfsRouter
-        instance cfsCmdRouter
 
         connections Downlink {
             # Command chain: app bridge -> cFS command framer
@@ -155,12 +152,6 @@ module ComCfs {
             # SpacePacketDeframer <-> CfsRouter (APID routing)
             spacePacketDeframer.dataOut -> cfsRouter.dataIn
             cfsRouter.dataReturnOut     -> spacePacketDeframer.dataReturnIn
-
-            # CfsRouter <-> CfsCmdRouter (function code routing before commanding).
-            # APIDs without a configured CfsRouter route (including this app's own
-            # command message ID by default) flow to the command router.
-            cfsRouter.unknownDataOut    -> cfsCmdRouter.dataIn
-            cfsCmdRouter.dataReturnOut  -> cfsRouter.dataReturnIn
         }
 
         # ----------------------------------------------------------------------
@@ -172,6 +163,20 @@ module ComCfs {
 
         @ Output port returning ownership of buffers received on cfsCommandIn to their sender
         port cfsCommandBufferReturnOut = cmdBridge.bufferReturnOut
+
+        @ Input port receiving outgoing raw cFS command payloads with a source-built frame
+        @ context (APID, function code); framed as a cFS command
+        port cfsCommandDataIn = cmdBridge.cfsDataIn
+
+        @ Output port returning ownership of buffers received on cfsCommandDataIn to their sender
+        port cfsCommandDataReturnOut = cmdBridge.cfsDataReturnOut
+
+        @ Input port receiving outgoing raw cFS telemetry payloads with a source-built frame
+        @ context (APID); framed as a cFS telemetry packet time-tagged with the current time
+        port cfsTelemetryDataIn = tlmBridge.cfsDataIn
+
+        @ Output port returning ownership of buffers received on cfsTelemetryDataIn to their sender
+        port cfsTelemetryDataReturnOut = tlmBridge.cfsDataReturnOut
 
         @ Input port array receiving outgoing F Prime com buffers (telemetry, events,
         @ packetized telemetry) into the telemetry app bridge
@@ -208,19 +213,13 @@ module ComCfs {
 
         @ Output port array sending function-code-routed messages as Fw::ComBuffers
         @ (e.g. to an F Prime command dispatcher)
-        port cmdRouterComOut = cfsCmdRouter.comOut
 
         @ Input port receiving command response messages back into the command router
-        port cmdRouterCmdResponseIn = cfsCmdRouter.cmdResponseIn
 
         @ Output port array sending function-code-routed payloads (function code + payload)
-        port cmdRouterBufferOut = cfsCmdRouter.bufferOut
 
         @ Output port forwarding messages with no configured function code route
-        port cmdRouterUnknownDataOut = cfsCmdRouter.unknownDataOut
 
-        @ Input port receiving back ownership of buffers sent on cmdRouterBufferOut or cmdRouterUnknownDataOut
-        port cmdRouterBufferReturnIn = cfsCmdRouter.bufferReturnIn
 
         # ----------------------------------------------------------------------
         # Topology ports (scheduling)

@@ -17,7 +17,6 @@ flowchart TD
     subgraph Uplink
         cfsBridge2[cfsBridge - FPrimeCfs.CfsBridge] --> spacePacketDeframer[spacePacketDeframer - Svc.Ccsds.SpacePacketDeframer]
         spacePacketDeframer --> cfsRouter[cfsRouter - FPrimeCfs.CfsRouter]
-        cfsRouter --> cfsCmdRouter[cfsCmdRouter - FPrimeCfs.CfsCmdRouter]
     end
 ```
 
@@ -48,10 +47,10 @@ application, as well as queue sizes, priorities, and buffer pool sizes in `ComCf
 ## Uplink
 
 The `FPrimeCfs.CfsBridge` subscribes to configured message IDs on the cFS software bus and forwards complete space
-packets to the `Svc.Ccsds.SpacePacketDeframer`. Deframed packets are routed by APID by the `FPrimeCfs.CfsRouter`;
-APIDs without a configured route (including this application's own command message ID by default) flow to the
-`FPrimeCfs.CfsCmdRouter`, which routes by cFS command function code ahead of commanding. Both routers' route tables
-are statically configured in their respective configuration modules (`CfsRouterConfig`, `CfsCmdRouterConfig`).
+packets to the `Svc.Ccsds.SpacePacketDeframer`. Deframed packets are routed by the `FPrimeCfs.CfsRouter`:
+command packets by (APID, function code) after their cFS command checksum is verified, telemetry packets by APID.
+Packets without a configured route flow to `unknownDataOut`. The route table is statically configured in the
+`CfsRouterConfig` configuration module (overridable per project).
 
 ## CfsBridge configuration and scheduling
 
@@ -73,6 +72,10 @@ be connected to release uplink flow control.
 | Port | Direction | Description |
 |---|---|---|
 | `cfsCommandIn` | in | Outgoing cFS commands (function code + payload) into the command app bridge |
+| `cfsCommandDataIn` | in | Raw cFS command payloads with a source-built frame context (APID, function code) |
+| `cfsCommandDataReturnOut` | out | Ownership return for `cfsCommandDataIn` buffers |
+| `cfsTelemetryDataIn` | in | Raw cFS telemetry payloads with a source-built frame context (APID); time-tagged with the current time |
+| `cfsTelemetryDataReturnOut` | out | Ownership return for `cfsTelemetryDataIn` buffers |
 | `cfsCommandBufferReturnOut` | out | Returns ownership of buffers received on `cfsCommandIn` |
 | `comIn` | in (array) | Outgoing F Prime com buffers into the telemetry app bridge |
 | `cfsTimeConvertOut` | out | F Prime to cFS time conversion (connect to `FPrimeCfs.CfsSystemTime`) |
@@ -83,11 +86,6 @@ be connected to release uplink flow control.
 | `bufferReturnIn` | in | Ownership return for `cfsCommandOut` / `cfsTelemetryOut` buffers |
 | `fileUplinkOut` | out | Uplinked file packets |
 | `fileUplinkReturnIn` | in | Ownership return from the file handling stack |
-| `cmdRouterComOut` | out (array) | Function-code-routed messages as `Fw::ComBuffer`s |
-| `cmdRouterCmdResponseIn` | in | Command responses back into the command router |
-| `cmdRouterBufferOut` | out (array) | Function-code-routed payloads |
-| `cmdRouterUnknownDataOut` | out | Messages with no configured function code route |
-| `cmdRouterBufferReturnIn` | in | Ownership return for `cmdRouterBufferOut` / `cmdRouterUnknownDataOut` buffers |
 | `bufferManagerSchedIn` | in | Rate-group driven buffer manager telemetry |
 | `cfsBridgeSchedIn` | in | Rate-group tick driving the CfsBridge queue and software bus poll |
 | `cfsBridgeComStatusIn` | in | Releases CfsBridge uplink flow control (required when configured paused) |
@@ -105,8 +103,8 @@ topology MyApp {
     }
 
     connections Commanding {
-        ComCfs.Subtopology.cmdRouterComOut[0] -> CfsCore.Subtopology.seqCmdBuff
-        CfsCore.Subtopology.seqCmdStatus -> ComCfs.Subtopology.cmdRouterCmdResponseIn
+        ComCfs.Subtopology.commandOut[0] -> CfsCore.Subtopology.seqCmdBuff
+        CfsCore.Subtopology.seqCmdStatus -> ComCfs.Subtopology.cmdResponseIn
     }
 
     connections Downlink {

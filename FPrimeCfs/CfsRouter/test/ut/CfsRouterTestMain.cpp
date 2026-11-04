@@ -7,7 +7,8 @@
 #include "Fw/Test/UnitTest.hpp"
 #include "STest/Random/Random.hpp"
 
-TEST(Nominal, RouteFprimeCommand) {
+TEST(Nominal, RouteFprimeCommand)
+{
     COMMENT("F Prime commands are copied to the configured command port and the buffer returned");
     REQUIREMENT("FPRIMECFS-CFSROUTER-001");
     REQUIREMENT("FPRIMECFS-CFSROUTER-002");
@@ -16,14 +17,28 @@ TEST(Nominal, RouteFprimeCommand) {
     tester.testRouteFprimeCommand();
 }
 
-TEST(Nominal, RouteFprimeCommandSecHdr) {
+TEST(Nominal, RouteFprimeCommandSecHdr)
+{
     COMMENT("The cFS command secondary header is excluded from copied F Prime command data");
     REQUIREMENT("FPRIMECFS-CFSROUTER-007");
     FPrimeCfs::CfsRouterTester tester;
     tester.testRouteFprimeCommandSecHdr();
 }
 
-TEST(OffNominal, RouteFprimeCommandTooLarge) {
+TEST(OffNominal, BadChecksum)
+{
+    FPrimeCfs::CfsRouterTester tester;
+    tester.testBadChecksum();
+}
+
+TEST(OffNominal, NoRouteFunctionCode)
+{
+    FPrimeCfs::CfsRouterTester tester;
+    tester.testNoRouteFunctionCode();
+}
+
+TEST(OffNominal, RouteFprimeCommandTooLarge)
+{
     COMMENT("Oversized F Prime command data emits a serialization error and returns the buffer");
     REQUIREMENT("FPRIMECFS-CFSROUTER-010");
     REQUIREMENT("FPRIMECFS-CFSROUTER-011");
@@ -31,7 +46,8 @@ TEST(OffNominal, RouteFprimeCommandTooLarge) {
     tester.testRouteFprimeCommandTooLarge();
 }
 
-TEST(Nominal, RouteCfsCommand) {
+TEST(Nominal, RouteCfsCommand)
+{
     COMMENT("cFS commands route with function code and payload; ownership returns via bufferReturnIn");
     REQUIREMENT("FPRIMECFS-CFSROUTER-003");
     REQUIREMENT("FPRIMECFS-CFSROUTER-009");
@@ -39,7 +55,8 @@ TEST(Nominal, RouteCfsCommand) {
     tester.testRouteCfsCommand();
 }
 
-TEST(Nominal, RouteCfsTelemetry) {
+TEST(Nominal, RouteCfsTelemetry)
+{
     COMMENT("cFS telemetry routes with parsed time and payload; ownership returns via bufferReturnIn");
     REQUIREMENT("FPRIMECFS-CFSROUTER-004");
     REQUIREMENT("FPRIMECFS-CFSROUTER-009");
@@ -47,70 +64,80 @@ TEST(Nominal, RouteCfsTelemetry) {
     tester.testRouteCfsTelemetry();
 }
 
-TEST(Nominal, RouteFile) {
+TEST(Nominal, RouteFile)
+{
     COMMENT("File packets route to the file output; ownership returns via fileBufferReturnIn");
     REQUIREMENT("FPRIMECFS-CFSROUTER-015");
     FPrimeCfs::CfsRouterTester tester;
     tester.testRouteFile();
 }
 
-TEST(Nominal, RouteUnknown) {
+TEST(Nominal, RouteUnknown)
+{
     COMMENT("Unconfigured APIDs route to the unknown output with their context");
     REQUIREMENT("FPRIMECFS-CFSROUTER-005");
     FPrimeCfs::CfsRouterTester tester;
     tester.testRouteUnknown();
 }
 
-TEST(Nominal, DataReturnIn) {
+TEST(Nominal, DataReturnIn)
+{
     COMMENT("Buffers returned via dataReturnIn are forwarded on dataReturnOut with the original context");
     REQUIREMENT("FPRIMECFS-CFSROUTER-016");
     FPrimeCfs::CfsRouterTester tester;
     tester.testDataReturnIn();
 }
 
-TEST(Nominal, DataReturnInUntracked) {
+TEST(Nominal, DataReturnInUntracked)
+{
     COMMENT("Untracked buffers returned via dataReturnIn are forwarded with the supplied context");
     REQUIREMENT("FPRIMECFS-CFSROUTER-016");
     FPrimeCfs::CfsRouterTester tester;
     tester.testDataReturnInUntracked();
 }
 
-TEST(OffNominal, MissingSecondaryHeader) {
+TEST(OffNominal, MissingSecondaryHeader)
+{
     COMMENT("cFS routes without a secondary header go to unknown with a warning event");
     REQUIREMENT("FPRIMECFS-CFSROUTER-006");
     FPrimeCfs::CfsRouterTester tester;
     tester.testMissingSecondaryHeader();
 }
 
-TEST(OffNominal, ShortSecondaryHeader) {
+TEST(OffNominal, ShortSecondaryHeader)
+{
     COMMENT("cFS routes whose data is too small for the secondary header go to unknown with a warning");
     REQUIREMENT("FPRIMECFS-CFSROUTER-006");
     FPrimeCfs::CfsRouterTester tester;
     tester.testShortSecondaryHeader();
 }
 
-TEST(OffNominal, DisconnectedOutputs) {
+TEST(OffNominal, DisconnectedOutputs)
+{
     COMMENT("Disconnected route outputs return the buffer rather than assert or leak");
     REQUIREMENT("FPRIMECFS-CFSROUTER-012");
     FPrimeCfs::CfsRouterTester tester(false);
     tester.testDisconnectedOutputs();
 }
 
-TEST(Nominal, CommandResponseNoop) {
+TEST(Nominal, CommandResponseNoop)
+{
     COMMENT("cmdResponseIn is accepted as a no-op");
     REQUIREMENT("FPRIMECFS-CFSROUTER-013");
     FPrimeCfs::CfsRouterTester tester;
     tester.testCommandResponseNoop();
 }
 
-TEST(Random, Routing) {
+TEST(Random, Routing)
+{
     COMMENT("Randomized routing across all categories returns every buffer");
     REQUIREMENT("FPRIMECFS-CFSROUTER-010");
     FPrimeCfs::CfsRouterTester tester;
     tester.testRandomized();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     ::testing::InitGoogleTest(&argc, argv);
     STest::Random::seed();
     return RUN_ALL_TESTS();

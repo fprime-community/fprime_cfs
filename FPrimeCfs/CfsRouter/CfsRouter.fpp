@@ -62,7 +62,7 @@ module FPrimeCfs {
         sync input port bufferReturnIn: Fw.BufferSend
 
         @ Port for receiving back ownership of buffers sent on unknownDataOut from
-        @ receivers that return data with a context (e.g. a FPrimeCfs.CfsCmdRouter
+        @ receivers that return data with a context (e.g. a downstream router's
         @ dataReturnOut). The buffer is returned on dataReturnOut with the context it
         @ was originally received with; untracked buffers use the supplied context.
         sync input port dataReturnIn: Svc.ComDataWithContext
@@ -72,6 +72,21 @@ module FPrimeCfs {
         # ----------------------------------------------------------------------
 
         @ An error occurred while copying a command packet into a com buffer
+        event BadChecksum(
+                apid: U16           @< The APID of the command
+                functionCode: U8    @< The function code of the command
+                checksum: U8        @< The XOR residual over the command (zero when valid)
+            ) \
+            severity warning high \
+            format "Command with APID {} function code {} dropped: bad checksum (residual {})"
+
+        event NoRoute(
+                apid: U16           @< The APID of the packet
+                functionCode: U8    @< The function code of the packet (zero for non-command packets)
+            ) \
+            severity warning low \
+            format "Packet with APID {} function code {} has no route; forwarded on unknownDataOut"
+
         event SerializationError(
                 status: U32 @< The status of the operation
             ) \

@@ -23,6 +23,13 @@ module FPrimeCfs {
         @ telemetry database)
         guarded input port comIn: [CfsAppBridgeComPorts] Fw.Com
 
+        @ Raw cFS payload with a caller-built frame context (APID, function code);
+        @ the payload is copied and the caller's buffer is returned on cfsDataReturnOut
+        guarded input port cfsDataIn: Svc.ComDataWithContext
+
+        @ Returns buffers received on cfsDataIn to their sender
+        output port cfsDataReturnOut: Svc.ComDataWithContext
+
         @ Data output: the copied data with a populated frame context
         output port dataOut: Svc.ComDataWithContext
 

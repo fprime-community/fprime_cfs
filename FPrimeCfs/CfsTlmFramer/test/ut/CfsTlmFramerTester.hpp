@@ -9,10 +9,12 @@
 #include "CfsTlmFramerGTestBase.hpp"
 #include "FPrimeCfs/CfsTlmFramer/CfsTlmFramer.hpp"
 
-namespace FPrimeCfs {
+namespace FPrimeCfs
+{
 
-class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
-  public:
+class CfsTlmFramerTester final : public CfsTlmFramerGTestBase
+{
+public:
     // Maximum size of histories storing events, telemetry, and port outputs
     static const U32 MAX_HISTORY_SIZE = 10;
 
@@ -43,6 +45,7 @@ class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
 
     //! An allocation that is too small drops the packet and returns the data
     void testAllocationFailure();
+    void testRawPayloadCurrentTime();
 
     //! comStatusIn is passed through to comStatusOut
     void testComStatusPassthrough();
@@ -50,7 +53,7 @@ class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
     //! dataReturnIn deallocates the wrapped buffer
     void testDataReturnPassthrough();
 
-  private:
+private:
     // ----------------------------------------------------------------------
     // Output port handler overrides
     // ----------------------------------------------------------------------
@@ -59,7 +62,7 @@ class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
     Fw::Buffer from_bufferAllocate_handler(FwIndexType portNum, FwSizeType size) override;
 
     //! Handler for cfsTimeConvert
-    CfsTime from_cfsTimeConvert_handler(FwIndexType portNum, const Fw::Time& time) override;
+    CfsTime from_cfsTimeConvert_handler(FwIndexType portNum, const Fw::Time &time) override;
 
     // ----------------------------------------------------------------------
     // Helpers
@@ -67,10 +70,10 @@ class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
 
     //! Serialize a packet (descriptor, id, time, payload byte) into m_packetStorage
     //! and run it through the framer, verifying the secondary header time
-    void checkFraming(const FwPacketDescriptorType descriptor, const Fw::Time& time);
+    void checkFraming(const FwPacketDescriptorType descriptor, const Fw::Time &time);
 
-    void connectPorts();    //!< Connects all ports for the component under test (auto-generated)
-    void initComponents();  //!< Initializes the component under test (auto-generated)
+    void connectPorts();   //!< Connects all ports for the component under test (auto-generated)
+    void initComponents(); //!< Initializes the component under test (auto-generated)
 
     // ----------------------------------------------------------------------
     // Member variables
@@ -89,6 +92,6 @@ class CfsTlmFramerTester final : public CfsTlmFramerGTestBase {
     bool m_useUndersizedAlloc = false;
 };
 
-}  // namespace FPrimeCfs
+} // namespace FPrimeCfs
 
 #endif

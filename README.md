@@ -42,7 +42,6 @@ The reusable components and topologies provided by F Prime can be used to constr
 | CfsCmdFramer | Secondary framer applying the cFS command secondary header.     | [CfsCmdFramer](./FPrimeCfs/CfsCmdFramer/docs/sdd.md) |
 | CfsTlmFramer | Secondary framer applying the cFS telemetry secondary header.   | [CfsTlmFramer](./FPrimeCfs/CfsTlmFramer/docs/sdd.md) |
 | CfsRouter    | Route deframed space packets by APID to command, telemetry, and file consumers. | [CfsRouter](./FPrimeCfs/CfsRouter/docs/sdd.md) |
-| CfsCmdRouter | Route cFS command messages to consumers by function code.       | [CfsCmdRouter](./FPrimeCfs/CfsCmdRouter/docs/sdd.md) |
 | EvsMirror    | Text logger replacement publishing F Prime events to cFS Event Services (EVS). | [EvsMirror](./FPrimeCfs/EvsMirror/docs/sdd.md)  |
 | SchAppDriver | Drive F Prime rate groups from cFS scheduler (SCH) messages.    | [SchAppDriver](./FPrimeCfs/SchAppDriver/docs/sdd.md) |
 | CfsSystemTime | Time component backed by cFS time services (CFE_TIME).        | [CfsSystemTime](./FPrimeCfs/CfsSystemTime/docs/sdd.md) |

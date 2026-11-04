@@ -17,6 +17,7 @@ module FPrimeCfs {
     @ An entry in the CfsRouter APID routing table
     struct CfsRouteEntry {
         apid: ComCfg.Apid         @< The APID to route
+        functionCode: U8          @< The cFS command function code to route (command routes only; ignored for telemetry and file routes)
         routeType: CfsRouteType   @< The category of output port to route to
         portIndex: FwIndexType    @< The index within that category's output port array
     }
