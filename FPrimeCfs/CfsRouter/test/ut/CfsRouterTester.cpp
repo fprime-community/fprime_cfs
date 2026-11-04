@@ -78,6 +78,7 @@ void CfsRouterTester ::testRouteFprimeCommand()
     ASSERT_from_commandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
     ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader(0, static_cast<U16>(FPRIME_CMD_APID), sizeof(bytes));
     Fw::Buffer buffer = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, buffer);
     ASSERT_from_dataReturnOut_SIZE(1);
@@ -272,6 +273,7 @@ void CfsRouterTester ::testMissingSecondaryHeader()
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
     ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader(0, static_cast<U16>(CFS_CMD_APID), sizeof(bytes));
     ASSERT_EVENTS_MissingSecondaryHeader_SIZE(0);
     // Return the first buffer so the pending map does not accumulate
     Fw::Buffer first = this->fromPortHistory_unknownDataOut->at(0).data;
@@ -291,6 +293,7 @@ void CfsRouterTester ::testShortSecondaryHeader()
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
     ASSERT_EVENTS_CommandMissingSecondaryHeader_SIZE(1);
+    ASSERT_EVENTS_CommandMissingSecondaryHeader(0, static_cast<U16>(CFS_CMD_APID), sizeof(bytes));
     Fw::Buffer first = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, first);
     U8 tlmBytes[CFS_ROUTER_TLM_SEC_HDR_SIZE - 1] = {};

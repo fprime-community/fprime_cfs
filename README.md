@@ -70,7 +70,7 @@ The [python/](./python) directory provides the `fprime-cfs` Python package: tool
 
 ## Work To Go
 
-This library still needs to demonstrate how to subscribe to cFS messages that aren't strictly commands (e.g. telemetry) and how to rout these messages.
+Subscribing to and routing native cFS commands and telemetry (by APID and function code) is demonstrated by the raw echo applications in `fprime_cfs_reference`.
 
 Unsupported features:
 1. Cross-compilation to other F Prime platforms

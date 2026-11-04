@@ -6,8 +6,9 @@ module FPrimeCfs {
     @ ports carrying the secondary-header fields (function code, or time) and the payload;
     @ anything without a configured route goes to the unknown output.
     @
-    @ Routing is selected by the static APID -> (route type, port index) table configured
-    @ in CfsRouterCfg.fpp (CFS_ROUTER_ROUTE_TABLE).
+    @ Routing is selected by the static (APID, function code) -> (route type, port index) table
+    @ for commands, after checksum verification, and by APID for telemetry and file packets,
+    @ configured in CfsRouterCfg.fpp (CFS_ROUTER_ROUTE_TABLE).
     passive component CfsRouter {
 
         @ The APID routing table type, statically configured via CfsRouterCfg.fpp

@@ -16,7 +16,7 @@ module FPrimeCfs {
     @ Maximum number of buffers simultaneously outstanding on the pass-through routes
     constant CFS_ROUTER_MAX_PENDING_BUFFERS = 10
 
-    @ Number of entries in the APID routing table
+    @ Number of entries in the routing table
     constant CFS_ROUTER_ROUTE_TABLE_SIZE = 4
 
     @ Test routing table with one route of each category

@@ -30,6 +30,9 @@ Two `FPrimeCfs.CfsAppBridge` instances feed the two cFS secondary framers:
   port array and feeds the `FPrimeCfs.CfsTlmFramer`, which prepends the 10-byte cFS telemetry secondary header (6-byte time plus the 4 spare bytes of `CFE_MSG_TelemetryHeader_t`). The
   telemetry framer's `cfsTimeConvert` port is exported as `cfsTimeConvertOut` and should be connected to a
   `FPrimeCfs.CfsSystemTime` instance (e.g. `CfsCore.cfsTime`).
+- Both bridges also accept raw buffers with a source-filled `ComCfg.FrameContext` (APID, function code) on the
+  exported `rawCommandIn` / `rawTelemetryIn` ports (returned on `rawCommandReturnOut` / `rawTelemetryReturnOut`);
+  the framers add the cFS secondary headers, so a source component never builds cFS headers itself.
 
 Both secondary framers feed the `Svc.Ccsds.SpacePacketFramer`, which completes the CCSDS space packet and passes it
 to the `FPrimeCfs.CfsBridge`, which publishes it on the cFS software bus.

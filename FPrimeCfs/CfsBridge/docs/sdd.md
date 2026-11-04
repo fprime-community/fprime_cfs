@@ -175,7 +175,6 @@ Coverage: 100% lines, 100% functions.
 | 2026-07-22 | Emit received messages whole (space packets) for downstream deframing instead of deframing internally |
 | 2026-07-22 | Transmit complete space packets from `dataIn` as-is (one SB message per packet) instead of framing payloads; message IDs mirror space packet stream identifiers |
 | 2026-07-29 | Add `subscribeCfs()` and `CfsMessageType` for subscribing to native cFS command/telemetry messages (secondary header flag set) |
-| 2026-11-04 | Transmit native cFS command packets (those already carrying a secondary header) as originated messages (`CFE_SB_TransmitMsg(msg, true)`) so cFE stamps the sequence count and command checksum |
 | 2026-07-30 | Remove development-time subscription-success and message-received log output; operational error logging retained |
 | 2026-07-30 | Reject `configure()` pipe depths that would truncate in cFE's `uint16` pipe depth |
 | 2026-07-30 | Optional F Prime command wrapping: transmit F Prime command packets as valid cFS command packets (secondary header flag, function code, checksum) |
@@ -184,3 +183,4 @@ Coverage: 100% lines, 100% functions.
 | 2026-08-05 | Source the wrapped-command function code from the `ComCfg.FprimeCommandFunctionCode` dictionary constant instead of a local constant |
 | 2026-10-29 | Subscribe with a per-message-ID limit equal to the pipe depth (`CFE_SB_SubscribeEx`) instead of the cFE default limit of 4 |
 | 2026-10-29 | Add `subscribe()` / `subscribeCfs()` overloads taking an explicit per-message-ID `msgLimit`; the existing overloads keep the pipe-depth limit |
+| 2026-11-04 | Transmit native cFS command packets (those already carrying a secondary header) as originated messages (`CFE_SB_TransmitMsg(msg, true)`) so cFE stamps the sequence count and command checksum |
