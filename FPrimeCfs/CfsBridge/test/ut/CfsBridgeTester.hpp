@@ -161,7 +161,8 @@ class CfsBridgeTester final : public CfsBridgeGTestBase {
     void assertTransmitted(U32 index,
                            CFE_SB_MsgId_Atom_t expectedMsgId,
                            const U8* expectedPayload,
-                           FwSizeType expectedPayloadSize);
+                           FwSizeType expectedPayloadSize,
+                           bool expectOrigination = false);
 
     void connectPorts();    //!< Connects all ports for the component under test (auto-generated)
     void initComponents();  //!< Initializes the component under test (auto-generated)

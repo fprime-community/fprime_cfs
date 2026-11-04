@@ -57,6 +57,10 @@ void CfsTlmFramer ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const 
     header[3]              = static_cast<U8>(seconds & 0xFF);
     header[4]              = static_cast<U8>(subseconds16 >> 8);
     header[5]              = static_cast<U8>(subseconds16 & 0xFF);
+    for (FwSizeType i = CFS_TLM_FRAMER_TIME_SIZE; i < CFS_TLM_FRAMER_SEC_HDR_SIZE; i++)
+    {
+        header[i] = 0; // CFE_MSG_TelemetryHeader_t spare bytes
+    }
     if (data.getSize() > 0)
     {
         (void)std::memcpy(&header[CFS_TLM_FRAMER_SEC_HDR_SIZE], data.getData(), data.getSize());

@@ -42,8 +42,9 @@ unknown route).
 
 - cFS command secondary header (2 bytes): `{U8 FunctionCode, U8 Checksum}`. The function code is forwarded on
   `cfsCommandOut`; the payload is the data after the secondary header.
-- cFS telemetry secondary header (6 bytes, big-endian): 4-byte seconds followed by 2-byte subseconds (the most
-  significant 16 bits of the 2^-32 subseconds value). Forwarded on `cfsTelemetryOut` as a `CfsTime`
+- cFS telemetry secondary header (10 bytes, big-endian): 4-byte seconds, 2-byte subseconds (the most
+  significant 16 bits of the 2^-32 subseconds value), then the 4 spare bytes cFE adds to
+  `CFE_MSG_TelemetryHeader_t` (payload at offset 16 of the packet). The time is forwarded on `cfsTelemetryOut` as a `CfsTime`
   (`seconds: U32`, `subseconds: U32`); the payload is the data after the secondary header.
 - F Prime commands framed with a cFS command header carry the 2-byte command secondary header ahead of the
   F Prime command data; it is excluded from the copied data when the context indicates one is present.
@@ -81,7 +82,7 @@ the check are dropped with `BadChecksum` before any route lookup.
 | FPRIMECFS-CFSROUTER-001a | CfsRouter shall verify the cFS command checksum of every command packet before routing it, and shall drop (returning the buffer to the sender) and emit a warning event for any command whose checksum is invalid. | Unit test |
 | FPRIMECFS-CFSROUTER-002 | CfsRouter shall route messages whose APID is configured as `FPRIME_COMMAND` to the configured F Prime command output port by copying the packet data into an `Fw::ComBuffer`. | Unit test |
 | FPRIMECFS-CFSROUTER-003 | CfsRouter shall route messages whose APID is configured as `CFS_COMMAND` to the configured cFS command output port, providing the function code (`U8`) parsed from the cFS command secondary header and the payload buffer. | Unit test |
-| FPRIMECFS-CFSROUTER-004 | CfsRouter shall route messages whose APID is configured as `CFS_TELEMETRY` to the configured cFS telemetry output port, providing the time parsed from the 6-byte big-endian cFS telemetry secondary header and the payload buffer. | Unit test |
+| FPRIMECFS-CFSROUTER-004 | CfsRouter shall route messages whose APID is configured as `CFS_TELEMETRY` to the configured cFS telemetry output port, providing the time parsed from the 10-byte cFS telemetry secondary header (6-byte big-endian time plus the 4 spare bytes of `CFE_MSG_TelemetryHeader_t`) and the payload buffer. | Unit test |
 | FPRIMECFS-CFSROUTER-005 | CfsRouter shall route any message without a matching route (APID, or APID and function code for commands) to the unknown data output port with its context and emit a low-severity warning event. | Unit test |
 | FPRIMECFS-CFSROUTER-006 | CfsRouter shall route messages configured as `CFS_COMMAND` or `CFS_TELEMETRY` whose context indicates no secondary header, or whose data is too small to contain the secondary header, to the unknown data output port and emit a warning event. | Unit test |
 | FPRIMECFS-CFSROUTER-007 | For `FPRIME_COMMAND` routing, CfsRouter shall exclude the cFS command secondary header from the copied data when the context indicates one is present. | Unit test |

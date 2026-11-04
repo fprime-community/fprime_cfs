@@ -1,7 +1,7 @@
 # FPrimeCfs::CfsTlmFramer
 
 A framer stage that wraps outgoing F Prime telemetry in a cFS telemetry secondary header (big-endian 4-byte
-seconds, 2-byte subseconds) ahead of a downstream space packet framer (e.g. `Svc.Ccsds.SpacePacketFramer`). The
+seconds, 2-byte subseconds, then the 4 spare bytes of `CFE_MSG_TelemetryHeader_t`) ahead of a downstream space packet framer (e.g. `Svc.Ccsds.SpacePacketFramer`). The
 result, once the downstream framer prepends the CCSDS primary header, is a valid cFS telemetry packet
 (`CFE_MSG_TelemetryHeader_t` layout).
 
@@ -37,8 +37,10 @@ the secondary header.
 The extracted `Fw.Time` is converted to a cFS system time (`CfsTime`: seconds, 2^-32 subseconds) through the
 `cfsTimeConvert` output port, allowing a project to supply a mission-accurate conversion (e.g. one backed by
 `CFE_TIME_Micro2SubSecs`). When the port is unconnected, the conversion is computed directly as
-`subseconds = usec * 2^32 / 10^6`. The 6-byte header stores the seconds and the most significant 16 bits of the
-subseconds, matching `CFE_MSG_TelemetrySecondaryHeader_t` and the parsing in `FPrimeCfs::CfsRouter`.
+`subseconds = usec * 2^32 / 10^6`. The 10-byte header stores the seconds and the most significant 16 bits of the
+subseconds (matching `CFE_MSG_TelemetrySecondaryHeader_t`) followed by 4 zero bytes: cFE pads
+`CFE_MSG_TelemetryHeader_t` to 16 bytes with `Spare[4]`, so a native cFS application's payload starts at
+offset 16. `FPrimeCfs::CfsRouter` parses the same layout.
 
 ## Buffer ownership
 

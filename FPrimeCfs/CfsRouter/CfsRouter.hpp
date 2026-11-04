@@ -19,7 +19,8 @@ namespace FPrimeCfs
 constexpr FwSizeType CFS_ROUTER_CMD_SEC_HDR_SIZE = 2;
 
 //! Size in bytes of the cFS telemetry secondary header (4-byte seconds, 2-byte subseconds)
-constexpr FwSizeType CFS_ROUTER_TLM_SEC_HDR_SIZE = 6;
+//! cFE telemetry secondary header: 6-byte time plus the 4 spare bytes of CFE_MSG_TelemetryHeader_t
+constexpr FwSizeType CFS_ROUTER_TLM_SEC_HDR_SIZE = 10;
 
 class CfsRouter final : public CfsRouterComponentBase
 {

@@ -73,7 +73,7 @@ match the downstream pipeline (e.g. a deframer/router stack).
 | FPRIMECFS-CFSBRIDGE-009 | `CfsBridge` shall return ownership of every buffer received on `dataIn` via `dataReturnOut` and shall emit a `comStatusOut` SUCCESS after every transmission attempt, regardless of outcome | Unit test |
 | FPRIMECFS-CFSBRIDGE-010 | `CfsBridge` shall subscribe to native cFS messages when `subscribeCfs()` is called, forming the message ID with the secondary header flag set and the packet type bit set for `CfsMessageType::COMMAND` and clear for `CfsMessageType::TELEMETRY` | Unit test |
 | FPRIMECFS-CFSBRIDGE-011 | `CfsBridge` shall reject a `configure()` pipe depth exceeding the cFE `uint16` pipe depth range with `CFE_SB_BAD_ARGUMENT` rather than silently truncating | Unit test |
-| FPRIMECFS-CFSBRIDGE-012 | When configured with F Prime command wrapping enabled, `CfsBridge` shall transmit each F Prime command space packet (packet type command, no secondary header) as a valid cFS command packet: secondary header flag set, length field adjusted, and a 2-byte cFS command secondary header (function code `ComCfg.FprimeCommandFunctionCode` and a valid cFS XOR checksum) inserted between the primary header and the payload; telemetry packets and packets already carrying a secondary header shall be transmitted unmodified, and packets too large to wrap shall be dropped with a logged error | Unit test |
+| FPRIMECFS-CFSBRIDGE-012 | When configured with F Prime command wrapping enabled, `CfsBridge` shall transmit each F Prime command space packet (packet type command, no secondary header) as a valid cFS command packet: secondary header flag set, length field adjusted, and a 2-byte cFS command secondary header (function code `ComCfg.FprimeCommandFunctionCode` and a valid cFS XOR checksum) inserted between the primary header and the payload; telemetry packets shall be transmitted unmodified; command packets already carrying a cFS secondary header shall be transmitted as originated messages (`CFE_SB_TransmitMsg(msg, true)`) so that cFE stamps the sequence count and command checksum; and packets too large to wrap shall be dropped with a logged error | Unit test |
 | FPRIMECFS-CFSBRIDGE-013 | `CfsBridge` shall perform one `process()` call (drain the message queue and poll the software bus pipe once) for each invocation of `schedIn`, allowing rate-group driven operation | Unit test |
 | FPRIMECFS-CFSBRIDGE-014 | When `bufferAllocate` is connected, `CfsBridge` shall copy each received software bus message into an allocated buffer before emitting it on `dataOut`, shall deallocate the buffer when returned on `dataReturnIn`, and shall drop the message with a logged error when allocation fails | Unit test |
 | FPRIMECFS-CFSBRIDGE-015 | `CfsBridge` shall subscribe with a per-message-ID message limit equal to the `msgLimit` argument when one is given to `subscribe()` or `subscribeCfs()` (including 0), and otherwise equal to the configured pipe depth | Unit test |
@@ -98,7 +98,10 @@ cFS command secondary header `{U8 FunctionCode, U8 Checksum}` is inserted betwee
 and the F Prime command payload. The function code is the fixed
 `ComCfg.FprimeCommandFunctionCode` used for all F Prime passthrough commands, and the checksum
 is computed per `CFE_MSG` conventions (the XOR of every packet byte with 0xFF equals zero). Telemetry
-packets and packets that already carry a secondary header are transmitted unmodified. The internal
+packets are transmitted unmodified. Command packets that already carry a cFS secondary header (native
+cFS commands framed by `CfsCmdFramer`) are transmitted unmodified but as originated messages
+(`CFE_SB_TransmitMsg(msg, true)`): cFE assigns the sequence count and stamps the command checksum, as it
+does for any cFS application, so the checksum is always computed over the final header. The internal
 wrap storage is bounded by `CFS_BRIDGE_MAX_WRAPPED_PACKET_SIZE` (2048 bytes, well under the software
 bus limit `CFE_MISSION_SB_MAX_SB_MSG_SIZE`); a command packet whose wrapped size would exceed this
 bound is dropped with a logged error. Note that wrapping applies to every command-type packet

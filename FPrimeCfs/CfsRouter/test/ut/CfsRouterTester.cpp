@@ -133,8 +133,8 @@ void CfsRouterTester ::testRouteCfsCommand()
 
 void CfsRouterTester ::testRouteCfsTelemetry()
 {
-    // Big-endian time: seconds = 0x01020304, subseconds16 = 0xABCD; then payload
-    U8 bytes[9] = {0x01, 0x02, 0x03, 0x04, 0xAB, 0xCD, 0x77, 0x88, 0x99};
+    // Big-endian time: seconds = 0x01020304, subseconds16 = 0xABCD; 4 spare bytes; then payload
+    U8 bytes[13] = {0x01, 0x02, 0x03, 0x04, 0xAB, 0xCD, 0x00, 0x00, 0x00, 0x00, 0x77, 0x88, 0x99};
     this->sendData(CFS_TLM_APID, true, bytes, sizeof(bytes));
     ASSERT_from_cfsTelemetryOut_SIZE(1);
     const CfsTime &time = this->fromPortHistory_cfsTelemetryOut->at(0).sysTime;

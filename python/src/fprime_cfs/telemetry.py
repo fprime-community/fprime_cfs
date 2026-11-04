@@ -8,7 +8,7 @@ cFS software bus by the TO_LAB telemetry output application. F Prime telemetry f
 (FPrimeCfs.CfsTlmFramer) inserts a cFS telemetry secondary header, so the packet is:
 
     +--------------------+-------------------+------------+--------+------------+------------- - - -
-    | primary header (6) | cFS sec header (6)| descriptor | pkt id | time (11)  | channel values...
+    | primary header (6) | cFS sec header (10)| descriptor | pkt id | time (11)  | channel values...
     +--------------------+-------------------+------------+--------+------------+------------- - - -
 
 Offsets written to the definition file are relative offsets: the tlmGUI adds the
@@ -28,8 +28,9 @@ from .dictionary import Dictionary, DictionaryError, ResolvedType
 
 # CCSDS space packet primary header size in bytes
 SPACE_PACKET_HEADER_SIZE = 6
-# cFS telemetry secondary header size in bytes (4-byte seconds, 2-byte subseconds)
-CFS_TLM_SEC_HDR_SIZE = 6
+# cFS telemetry secondary header size in bytes: 4-byte seconds, 2-byte subseconds, then the
+# 4 spare bytes of CFE_MSG_TelemetryHeader_t (cFE pads the header to 16 bytes)
+CFS_TLM_SEC_HDR_SIZE = 10
 # Space packet stream identifier secondary header flag (big-endian 16 bits)
 STREAM_ID_SEC_HDR = 0x0800
 # Fw.Time serialized size in bytes: U16 base, U8 context, U32 seconds, U32 microseconds
