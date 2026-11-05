@@ -116,6 +116,7 @@ void CfsRouterTester ::testRouteCfsCommand()
     U8 bytes[6] = {0x2A, 0xFF, 0x11, 0x22, 0x33, 0x44}; // fn code 0x2A, checksum, payload
     this->sendData(CFS_CMD_APID, true, bytes, sizeof(bytes));
     ASSERT_from_cfsCommandOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).apid, CFS_CMD_APID);
     ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).functionCode, 0x2A);
     Fw::Buffer payload = this->fromPortHistory_cfsCommandOut->at(0).data;
     ASSERT_EQ(payload.getData(), &bytes[CFS_ROUTER_CMD_SEC_HDR_SIZE]);
@@ -138,6 +139,7 @@ void CfsRouterTester ::testRouteCfsTelemetry()
     U8 bytes[13] = {0x01, 0x02, 0x03, 0x04, 0xAB, 0xCD, 0x00, 0x00, 0x00, 0x00, 0x77, 0x88, 0x99};
     this->sendData(CFS_TLM_APID, true, bytes, sizeof(bytes));
     ASSERT_from_cfsTelemetryOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_cfsTelemetryOut->at(0).apid, CFS_TLM_APID);
     const CfsTime &time = this->fromPortHistory_cfsTelemetryOut->at(0).sysTime;
     ASSERT_EQ(time.get_seconds(), 0x01020304u);
     ASSERT_EQ(time.get_subseconds(), 0xABCD0000u);
@@ -389,6 +391,7 @@ void CfsRouterTester ::testLiteralChecksumVector()
     this->invoke_to_dataIn(0, buffer, context);
     ASSERT_EVENTS_BadChecksum_SIZE(0);
     ASSERT_from_cfsCommandOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).apid, CFS_CMD_APID);
     ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).functionCode, 0x2A);
     // One flipped payload bit must be caught
     Fw::Buffer routed = this->fromPortHistory_cfsCommandOut->at(0).data;

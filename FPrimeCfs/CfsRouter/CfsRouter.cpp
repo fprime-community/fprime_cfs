@@ -235,7 +235,7 @@ void CfsRouter ::routeCfsCommand(const CfsRouteEntry &route, Fw::Buffer &data, c
     const Fw::Success trackStatus = this->trackPending(payload, data, context);
     if (trackStatus == Fw::Success::SUCCESS)
     {
-        this->cfsCommandOut_out(index, functionCode, payload);
+        this->cfsCommandOut_out(index, context.get_apid(), functionCode, payload);
     }
     else
     {
@@ -271,7 +271,7 @@ void CfsRouter ::routeCfsTelemetry(const CfsRouteEntry &route, Fw::Buffer &data,
     const Fw::Success trackStatus = this->trackPending(payload, data, context);
     if (trackStatus == Fw::Success::SUCCESS)
     {
-        this->cfsTelemetryOut_out(index, time, payload);
+        this->cfsTelemetryOut_out(index, context.get_apid(), time, payload);
     }
     else
     {

@@ -9,14 +9,8 @@ module FPrimeCfs {
         @ Implement tick interface
         import Drv.Tick
 
-        @ Port receiving routed cFS scheduler command messages from the
-        @ CfsRouter's cFS command route. Each valid message triggers one
-        @ tick on CycleOut.
-        sync input port cfsCommandIn: FPrimeCfs.CfsCommand
-
-        @ Port returning ownership of buffers received on cfsCommandIn once
-        @ processed. Connects to the router's buffer return input.
-        output port bufferReturnOut: Fw.BufferSend
+        @ Routed cFS scheduler command and payload buffer return
+        import FPrimeCfs.CfsCommandHandler
 
         # ----------------------------------------------------------------------
         # Events

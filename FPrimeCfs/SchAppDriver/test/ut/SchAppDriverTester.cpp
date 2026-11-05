@@ -70,7 +70,7 @@ void SchAppDriverTester ::sendSchMessage(Fw::Buffer& buffer, U8 functionCode) {
         this->m_messageData[i] = static_cast<U8>(STest::Pick::lowerUpper(0, 0xFF));
     }
     buffer.set(this->m_messageData, size);
-    this->invoke_to_cfsCommandIn(0, functionCode, buffer);
+    this->invoke_to_cfsCommandIn(0, ComCfg::Apid::FW_PACKET_COMMAND, functionCode, buffer);
 }
 
 void SchAppDriverTester ::assertSingleTickAndReturn(const Fw::Buffer& buffer) {

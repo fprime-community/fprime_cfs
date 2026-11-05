@@ -38,7 +38,7 @@ Both instances connect `bufferAllocate` / `bufferDeallocate` to a buffer manager
 
 ## APID selection
 
-- `cfsCommandIn`: the APID is configured once via `configure(commandApid)`; the function code from the port call
+- `cfsCommandIn`: the APID and the function code from the port call
   is set in the context's `functionCode` field (added by this library's `ComCfg.fpp` configuration override) for
   `CfsCmdFramer` to place in the cFS command secondary header.
 - `comIn`: the leading `FwPacketDescriptorType` packet descriptor is read from the com buffer and mapped to the

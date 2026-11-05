@@ -8,13 +8,13 @@ module FPrimeCfs {
     @ buffer) or an F Prime com buffer, and emits the data with a populated
     @ frame context on a single buffer + context output:
     @
-    @ - cfsCommandIn: the function code is set in the context and the APID is
-    @   the configured command APID.
+    @ - cfsCommandIn: the APID and function code from the port call are set in
+    @   the context.
     @ - comIn: the packet descriptor is read from the com buffer and mapped to
     @   the corresponding APID.
     passive component CfsAppBridge {
 
-        @ cFS command input: function code plus payload buffer. The buffer is
+        @ cFS command input: destination APID, function code and payload buffer. The buffer is
         @ copied and returned to the sender on bufferReturnOut before this call
         @ returns.
         guarded input port cfsCommandIn: CfsCommand

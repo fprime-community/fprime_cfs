@@ -28,7 +28,6 @@ CfsAppBridgeTester ::~CfsAppBridgeTester() {}
 
 void CfsAppBridgeTester ::testCfsCommand()
 {
-    this->component.configure(ComCfg::Apid::FW_PACKET_COMMAND);
 
     U8 payload[16];
     for (U32 i = 0; i < sizeof(payload); ++i)
@@ -38,7 +37,7 @@ void CfsAppBridgeTester ::testCfsCommand()
     Fw::Buffer data(payload, sizeof(payload));
     const U8   functionCode = static_cast<U8>(STest::Random::lowerUpper(0, 0x7F));
 
-    this->invoke_to_cfsCommandIn(0, functionCode, data);
+    this->invoke_to_cfsCommandIn(0, ComCfg::Apid::FW_PACKET_COMMAND, functionCode, data);
 
     ASSERT_from_dataOut_SIZE(1);
     const ComCfg::FrameContext &context = this->fromPortHistory_dataOut->at(0).context;
@@ -138,7 +137,7 @@ void CfsAppBridgeTester ::testAllocationFailure()
     Fw::Buffer data(payload, sizeof(payload));
 
     this->m_useUndersizedAlloc = true;
-    this->invoke_to_cfsCommandIn(0, 0, data);
+    this->invoke_to_cfsCommandIn(0, ComCfg::Apid::FW_PACKET_COMMAND, 0, data);
     this->m_useUndersizedAlloc = false;
 
     ASSERT_from_dataOut_SIZE(0);

@@ -16,6 +16,7 @@ register_fprime_library(
     SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/SchAppDriver.cpp"
     DEPENDS
+        FPrimeCfs_Interfaces
         FPrimeCfs_Ports
 )
 
