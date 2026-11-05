@@ -66,7 +66,7 @@ This will integrate the library into the cFS build and make the targets availabl
 
 ## Ground Tooling
 
-The [python/](./python) directory provides the `fprime-cfs` Python package: tools that generate cFS GroundSystem configuration from the F Prime dictionary and run the cFS GroundSystem as the GDS for an F Prime deployment. See [python/README.md](./python/README.md).
+The [python/](./python) directory provides the `fprime-cfs` Python package: F Prime GDS plugins (`fprime-gds --communication-selection cfs-lab --framing-selection cfs`) that connect the F Prime GDS to a cFS system through CI_LAB/TO_LAB, plus tools that generate cFS GroundSystem configuration from the F Prime dictionary and run the cFS GroundSystem as the GDS for an F Prime deployment. See [python/README.md](./python/README.md).
 
 ## Work To Go
 

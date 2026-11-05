@@ -5,22 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fprime-cfs"
 version = "0.1.0"
-description = "F Prime dictionary conversion and runner tooling for the cFS GroundSystem GDS"
+description = "F Prime GDS plugins (cfs-lab link, cfs framing) and cFS GroundSystem tooling for F Prime cFS applications"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 dependencies = [
-    "fprime-gds>=4.2.1,<5",
-    # Required by the cFS GroundSystem GUI launched by fprime-cfs
-    "PyQt5>=5.15,<6",
+    "fprime-gds>=4.3.0,<5",  # 4.3.0 adds the udp communication adapter the cfs-lab plugin extends
 ]
 
 [project.scripts]
 fprime-cfs = "fprime_cfs.__main__:main"
 fprime-cfs-config = "fprime_cfs.generate:main"
 
+# F Prime GDS plugins: `fprime-gds --communication-selection cfs-lab --framing-selection cfs`
+[project.entry-points.fprime_gds]
+fprime_cfs_lab_link = "fprime_cfs.lab_link:CfsLabAdapter"
+fprime_cfs_framing = "fprime_cfs.framing:CfsFramerDeframer"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [project.optional-dependencies]
+# cFS GroundSystem GUI launched by fprime-cfs: pip install './python[groundsystem]'
+groundsystem = ["PyQt5>=5.15,<6"]
 test = ["pytest>=6"]

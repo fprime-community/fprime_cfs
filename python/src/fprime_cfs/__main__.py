@@ -9,11 +9,11 @@ sends the TO_LAB enable-output command so telemetry flows without manual interve
 """
 
 import atexit
+import importlib.util
 import os
 import shutil
 import signal
 import socket
-import struct
 import subprocess
 import sys
 import tempfile
@@ -31,12 +31,9 @@ from fprime_gds.executables.cli import (
 )
 from fprime_gds.executables.run_deployment import launch_app
 
-from .commands import TO_LAB_DEFAULT_MESSAGE_ID, TO_LAB_OUTPUT_ENABLE_CC
 from .dictionary import Dictionary
 from .generate import generate
-
-# TO_LAB enable-output payload: a 16-character destination IP string
-TO_LAB_DEST_IP_SIZE = 16
+from .packets import TO_LAB_DEFAULT_MESSAGE_ID, to_lab_enable_output_packet
 # Delay before sending the enable-output command, allowing a launched cFS application to boot
 ENABLE_TELEMETRY_DELAY_SECONDS = 3.0
 # Number of enable-output datagrams sent (UDP is unacknowledged and the command is idempotent)
@@ -130,32 +127,25 @@ def construct_ground_system(parsed_args, dictionary: Dictionary) -> Path:
 def enable_telemetry(parsed_args):
     """Send the TO_LAB enable-output command through the CI_LAB command ingest port
 
-    Builds a cFS command packet (CCSDS primary header, cFS command secondary header with
-    checksum) carrying the telemetry destination IP, exactly as the GroundSystem's
-    "Enable Tlm" quick button would.
+    Sends the cFS command packet carrying the telemetry destination IP, exactly as the
+    GroundSystem's "Enable Tlm" quick button would.
     """
-    destination = parsed_args.telemetry_destination.encode("ascii")
-    # TO_LAB consumes the destination as a NUL-terminated string within a fixed-size field
-    if len(destination) >= TO_LAB_DEST_IP_SIZE:
-        raise ValueError(
-            f"Telemetry destination '{parsed_args.telemetry_destination}' exceeds "
-            f"{TO_LAB_DEST_IP_SIZE - 1} characters"
-        )
-    payload = destination.ljust(TO_LAB_DEST_IP_SIZE, b"\x00")
-    header = struct.pack(
-        ">HHH", parsed_args.to_lab_message_id, 0xC000, 2 + len(payload) - 1
+    packet = to_lab_enable_output_packet(
+        parsed_args.telemetry_destination, parsed_args.to_lab_message_id
     )
-    secondary = bytearray([TO_LAB_OUTPUT_ENABLE_CC, 0])
-    checksum = 0xFF
-    for byte in header + bytes(secondary) + payload:
-        checksum ^= byte
-    secondary[1] = checksum
-    packet = header + bytes(secondary) + payload
     print(
         f"[INFO] Enabling TO_LAB telemetry output to {parsed_args.telemetry_destination}"
     )
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.sendto(packet, (parsed_args.command_address, parsed_args.command_port))
+
+
+def require_ground_system_gui():
+    """Fail before anything is launched when the GUI's PyQt5 (the groundsystem extra) is missing"""
+    if importlib.util.find_spec("PyQt5") is None:
+        raise RuntimeError(
+            "the cFS GroundSystem GUI needs PyQt5: pip install '<fprime_cfs>/python[groundsystem]'"
+        )
 
 
 def launch_ground_system(ground_system_dir: Path):
@@ -205,6 +195,7 @@ def main():
     """Main entrypoint for the F Prime cFS GroundSystem runner"""
     parsed_args = parse_args()
     try:
+        require_ground_system_gui()
         dictionary = Dictionary(parsed_args.dictionary)
         ground_system_dir = construct_ground_system(parsed_args, dictionary)
 

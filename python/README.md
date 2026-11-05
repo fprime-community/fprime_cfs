@@ -1,7 +1,9 @@
 # fprime-cfs
 
-Tooling for running the [cFS GroundSystem](https://github.com/nasa/cFS-GroundSystem) as the
-GDS for an F Prime deployment integrated through `fprime_cfs`.
+Ground tooling for cFS systems built with `fprime_cfs`: F Prime GDS plugins (`cfs-lab` link,
+`cfs` framing) that connect `fprime-gds` through CI_LAB/TO_LAB, and tools for running the
+[cFS GroundSystem](https://github.com/nasa/cFS-GroundSystem) as the GDS for an F Prime
+deployment.
 
 > **Note**: the CI_LAB/TO_LAB path used by this tooling carries commands and telemetry
 > over plain UDP with no authentication or integrity protection. It is intended for
@@ -10,8 +12,48 @@ GDS for an F Prime deployment integrated through `fprime_cfs`.
 ## Installation
 
 ```bash
-pip install ./python  # from the fprime_cfs checkout root
+pip install ./python                 # from the fprime_cfs checkout root: GDS plugins + tools
+pip install './python[groundsystem]'  # adds PyQt5 for the fprime-cfs GroundSystem runner
 ```
+
+## F Prime GDS plugins
+
+Installing this package registers two [fprime-gds](https://github.com/nasa/fprime-gds)
+plugins that connect the F Prime GDS (and `fprime-comm-bridge`, hence COSMOS or YAMCS) to
+a cFS system through the standard lab applications:
+
+- `cfs-lab` communication plugin: sends commands as UDP datagrams to CI_LAB (default port
+  `1234`) and receives telemetry from TO_LAB (default port `2234`). It sends the TO_LAB
+  enable-output command when the link opens and repeats it while no telemetry arrives: every
+  second during the first interval, then after every `--to-lab-enable-interval`
+  seconds (default 30; 0 disables every repeat, including the start-up ones), so cFS may be
+  started or restarted after the GDS (expect
+  up to one interval of silence after a restart). Options: `--cfs-address`, `--ci-lab-port`,
+  `--to-lab-port`, `--telemetry-destination` (IPv4 dotted quad of the GDS host as seen from
+  cFS; TO_LAB takes no hostnames),
+  `--to-lab-message-id`, `--no-enable-telemetry`, `--to-lab-enable-interval`. TO_LAB forwards
+  to one destination at a time, so a running `fprime-gds` re-targets it away from any other
+  ground system (e.g. the cFS GroundSystem on another host) after each quiet interval; use
+  `--no-enable-telemetry` when another tool owns the TO_LAB destination.
+- `cfs` framing plugin: wraps each F Prime command packet as a cFS command packet (CCSDS
+  primary header on the F Prime command APID, cFS command secondary header with the
+  `ComCfg.FprimeCommandFunctionCode` dictionary constant and checksum) and strips the
+  CCSDS primary header and the 10-byte cFS telemetry secondary header (the time and spare
+  bytes that complete the 16-byte `CFE_MSG_TelemetryHeader_t`) from each telemetry packet
+  TO_LAB forwards, the ground-side inverse of
+  `FPrimeCfs.CfsCmdFramer`/`FPrimeCfs.CfsTlmFramer`. Commands must fit CI_LAB's ingest buffer
+  (`CI_LAB_PLATFORM_MAX_INGEST`, 768 bytes by default): CI_LAB truncates larger datagrams and
+  drops them with `CI_LAB_INGEST_LEN_ERR_EID`; the plugin itself only rejects packets larger
+  than a software bus message.
+
+```bash
+fprime-gds --communication-selection cfs-lab --framing-selection cfs \
+    --dictionary <deployment>/dict/*TopologyDictionary.json
+```
+
+TO_LAB forwards only the message ids in its subscription table; subscribe the F Prime
+downlink messages (telemetry `0x0801`, events `0x0802`, files `0x0803`, data products
+`0x0805`, packetized telemetry `0x0820`) there for the full F Prime downlink.
 
 ## Tools
 
@@ -25,10 +67,8 @@ telemetry arrives from TO_LAB (default port 2234). On startup the runner sends t
 TO_LAB enable-output command (suppress with `--no-enable-telemetry`; the destination IP
 may be changed with `--telemetry-destination`).
 
-Connecting the F Prime GDS instead is done through the GdsBridge cFS application (from
-the [fprime-community/fprime_gds](https://github.com/fprime-community/fprime_gds) cFS
-library), which exposes a TCP server for `fprime-gds`; that path does not use this
-runner.
+The F Prime GDS connects through the same CI_LAB/TO_LAB path with the plugins above; it
+needs no cFS application of its own.
 
 ```bash
 fprime-cfs --dictionary <deployment>/dict/*TopologyDictionary.json \
@@ -44,8 +84,9 @@ The cFS application itself may be launched by the runner by passing `--app
 `fprime-gds`; pass `--no-app`/`-n` to manage the application yourself. Extra application
 arguments may be given with `--application-arguments`.
 
-The GroundSystem GUI has its own dependencies (PyQt5, pyzmq); install them from the
-cFS-GroundSystem checkout before running.
+The GroundSystem GUI needs PyQt5, installed by the `groundsystem` extra
+(`pip install './python[groundsystem]'` from the fprime_cfs checkout), and pyzmq, which
+fprime-gds provides.
 
 Telemetry decoding assumes the default `Fw.Time` serialization (U16 time base, U8 time
 context, U32 seconds, U32 microseconds); deployments overriding the time base/context

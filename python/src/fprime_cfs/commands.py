@@ -21,6 +21,12 @@ from pathlib import Path
 from typing import List, Tuple
 
 from .dictionary import Command, Dictionary, DictionaryError, ResolvedType
+from .packets import (
+    STREAM_ID_SEC_HDR,
+    STREAM_ID_TYPE_COMMAND,
+    TO_LAB_DEFAULT_MESSAGE_ID,
+    TO_LAB_OUTPUT_ENABLE_CC,
+)
 
 COMMAND_PAGES_FILE = "command-pages.txt"
 QUICK_BUTTONS_FILE = "quick-buttons.txt"
@@ -29,13 +35,7 @@ COMMAND_DEFINITION_FILE = "fprime_cmds"
 # TO_LAB command interface (shipped with the cFS GroundSystem checkout)
 TO_LAB_PAGE_NAME = "Telemetry Output"
 TO_LAB_COMMAND_DEFINITION_FILE = "TO_LAB_CMD"
-TO_LAB_DEFAULT_MESSAGE_ID = 0x1880
-TO_LAB_OUTPUT_ENABLE_CC = 6
 TO_LAB_OUTPUT_ENABLE_PARAMETER_FILE = "TO_LAB_OUTPUT_ENABLE_CC"
-
-# Space packet stream identifier bits (CCSDS primary header, big-endian 16 bits)
-STREAM_ID_TYPE_COMMAND = 0x1000
-STREAM_ID_SEC_HDR = 0x0800
 
 # MiniCmdUtil type flags by (size, signed); page endianness (BE) supplies the byte order
 _CMD_UTIL_FLAGS = {
