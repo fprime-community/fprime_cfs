@@ -13,6 +13,35 @@ GDS for an F Prime deployment integrated through `fprime_cfs`.
 pip install ./python  # from the fprime_cfs checkout root
 ```
 
+## F Prime GDS plugins
+
+Installing this package registers two [fprime-gds](https://github.com/nasa/fprime-gds)
+plugins that connect the F Prime GDS (and `fprime-comm-bridge`, hence COSMOS or YAMCS) to
+a cFS system through the standard lab applications:
+
+- `cfs-lab` communication plugin: sends commands as UDP datagrams to CI_LAB (default port
+  `1234`) and receives telemetry from TO_LAB (default port `2234`). It sends the TO_LAB
+  enable-output command when the link opens and repeats it after every
+  `--to-lab-enable-interval` seconds (default 30, 0 never) without telemetry, so cFS may be
+  started or restarted after the GDS. Options: `--cfs-address`, `--ci-lab-port`,
+  `--to-lab-port`, `--telemetry-destination` (the GDS host as seen from cFS),
+  `--to-lab-message-id`, `--no-enable-telemetry`, `--to-lab-enable-interval`.
+- `cfs` framing plugin: wraps each F Prime command packet as a cFS command packet (CCSDS
+  primary header on the F Prime command APID, cFS command secondary header with the
+  `ComCfg.FprimeCommandFunctionCode` dictionary constant and checksum) and strips the
+  CCSDS primary header and the 16-byte `CFE_MSG_TelemetryHeader_t` remainder (time plus
+  spare bytes) from each telemetry packet TO_LAB forwards, the ground-side inverse of
+  `FPrimeCfs.CfsCmdFramer`/`FPrimeCfs.CfsTlmFramer`.
+
+```bash
+fprime-gds --communication-selection cfs-lab --framing-selection cfs \
+    --dictionary <deployment>/dict/*TopologyDictionary.json
+```
+
+TO_LAB forwards only the message ids in its subscription table; subscribe the F Prime
+downlink messages (telemetry `0x0801`, events `0x0802`, files `0x0803`, data products
+`0x0805`, packetized telemetry `0x0820`) there for the full F Prime downlink.
+
 ## Tools
 
 ### `fprime-cfs`
@@ -25,10 +54,8 @@ telemetry arrives from TO_LAB (default port 2234). On startup the runner sends t
 TO_LAB enable-output command (suppress with `--no-enable-telemetry`; the destination IP
 may be changed with `--telemetry-destination`).
 
-Connecting the F Prime GDS instead is done through the GdsBridge cFS application (from
-the [fprime-community/fprime_gds](https://github.com/fprime-community/fprime_gds) cFS
-library), which exposes a TCP server for `fprime-gds`; that path does not use this
-runner.
+The F Prime GDS connects through the same CI_LAB/TO_LAB path with the plugins below; it
+needs no cFS application of its own.
 
 ```bash
 fprime-cfs --dictionary <deployment>/dict/*TopologyDictionary.json \

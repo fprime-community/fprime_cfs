@@ -19,6 +19,11 @@ dependencies = [
 fprime-cfs = "fprime_cfs.__main__:main"
 fprime-cfs-config = "fprime_cfs.generate:main"
 
+# F Prime GDS plugins: `fprime-gds --communication-selection cfs-lab --framing-selection cfs`
+[project.entry-points.fprime_gds]
+fprime_cfs_lab_link = "fprime_cfs.lab_link:CfsLabAdapter"
+fprime_cfs_framing = "fprime_cfs.framing:CfsFramerDeframer"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
