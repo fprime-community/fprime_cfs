@@ -23,6 +23,7 @@ from fprime_gds.plugin.definitions import gds_plugin_implementation
 from fprime_gds.common.models.serialize.type_exceptions import TypeException
 
 from .packets import (
+    COMMAND_SECONDARY_HEADER_SIZE,
     MAX_PACKET_SIZE,
     PRIMARY_HEADER_SIZE,
     SEQUENCE_FLAGS_UNSEGMENTED,
@@ -78,6 +79,11 @@ class CfsFramerDeframer(FramerDeframer):
                 "Dropping %d-byte packet: descriptor 0x%04X is not a cFS APID", len(data), apid
             )
             return b""
+        if len(data) + PRIMARY_HEADER_SIZE + COMMAND_SECONDARY_HEADER_SIZE > MAX_PACKET_SIZE:
+            LOGGER.warning(
+                "Dropping %d-byte packet: larger than a cFS software bus message", len(data)
+            )
+            return b""
         sequence_count = self.uplink_sequence_counts.get(apid, 0)
         self.uplink_sequence_counts[apid] = (
             sequence_count + 1
@@ -89,31 +95,26 @@ class CfsFramerDeframer(FramerDeframer):
 
         Returns the F Prime packet, the bytes following it, and any discarded bytes.
         Data shorter than the packet it starts is kept as leftover until more arrives.
-        Bytes that are not a valid cFS telemetry packet (bad header, command packet, no
-        secondary header, truncated) are discarded and the scan continues within the
-        same call, so a good packet behind them is delivered without waiting for more
+        Bytes that do not start a cFS telemetry packet (version, type, secondary-header
+        or sequence flags wrong, length out of bounds, or truncated) are discarded and the
+        scan continues within the same call, so a good packet behind them is delivered without waiting for more
         data, as fprime-gds's deframe_all expects.
         """
         discarded = b""
         while data is not None and len(data) >= PRIMARY_HEADER_SIZE:
             stream_id, sequence, packet_length = parse_primary_header(data)
-            if stream_id & STREAM_ID_VERSION_MASK or packet_length > MAX_PACKET_SIZE:
+            if not self.plausible_header(stream_id, sequence, packet_length):
                 skip = self.resync_offset(data)
-                LOGGER.warning("Discarding %d bytes: not a valid space packet header", skip)
+                LOGGER.warning(
+                    "Discarding %d bytes: not a cFS telemetry packet header", skip
+                )
                 discarded += bytes(data[:skip])
                 data = data[skip:]
                 continue
             if len(data) < packet_length:
                 break
             packet, data = bytes(data[:packet_length]), data[packet_length:]
-            if stream_id & STREAM_ID_TYPE_COMMAND:
-                LOGGER.warning("Discarding command packet on stream id 0x%04X", stream_id)
-            elif not stream_id & STREAM_ID_SEC_HDR:
-                LOGGER.warning(
-                    "Discarding packet without cFS telemetry header on stream id 0x%04X",
-                    stream_id,
-                )
-            elif packet_length < PRIMARY_HEADER_SIZE + TELEMETRY_SECONDARY_HEADER_SIZE:
+            if packet_length < PRIMARY_HEADER_SIZE + TELEMETRY_SECONDARY_HEADER_SIZE:
                 LOGGER.warning("Discarding truncated packet on stream id 0x%04X", stream_id)
             else:
                 self.check_sequence_count(stream_id & STREAM_ID_APID_MASK, sequence)
@@ -123,20 +124,25 @@ class CfsFramerDeframer(FramerDeframer):
         return None, data if data else b"", discarded
 
     @staticmethod
-    def resync_offset(data) -> int:
-        """Offset of the next plausible cFS telemetry header after a bad one, else len(data)
+    def plausible_header(stream_id: int, sequence: int, packet_length: int) -> bool:
+        """Whether a primary header can start a cFS telemetry packet
 
-        Plausible means what deframe() accepts: version 0, unsegmented (cFS never segments),
-        secondary header present (cFE telemetry always carries one) and a bounded length.
+        Version 0, telemetry type, secondary header present (cFE telemetry always carries
+        one), unsegmented (cFS never segments) and a bounded length. Checked before any
+        bytes are awaited so a corrupt header cannot hold the following packets hostage.
         """
+        return (
+            not stream_id & (STREAM_ID_VERSION_MASK | STREAM_ID_TYPE_COMMAND)
+            and bool(stream_id & STREAM_ID_SEC_HDR)
+            and sequence & SEQUENCE_FLAGS_UNSEGMENTED == SEQUENCE_FLAGS_UNSEGMENTED
+            and packet_length <= MAX_PACKET_SIZE
+        )
+
+    @classmethod
+    def resync_offset(cls, data) -> int:
+        """Offset of the next plausible cFS telemetry header after a bad one, else len(data)"""
         for offset in range(1, len(data) - PRIMARY_HEADER_SIZE + 1):
-            stream_id, sequence, packet_length = parse_primary_header(data, offset)
-            if (
-                not stream_id & STREAM_ID_VERSION_MASK
-                and stream_id & STREAM_ID_SEC_HDR
-                and sequence & SEQUENCE_FLAGS_UNSEGMENTED == SEQUENCE_FLAGS_UNSEGMENTED
-                and packet_length <= MAX_PACKET_SIZE
-            ):
+            if cls.plausible_header(*parse_primary_header(data, offset)):
                 return offset
         return len(data)
 

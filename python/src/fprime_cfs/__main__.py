@@ -140,6 +140,14 @@ def enable_telemetry(parsed_args):
         sock.sendto(packet, (parsed_args.command_address, parsed_args.command_port))
 
 
+def require_ground_system_gui():
+    """Fail before anything is launched when the GUI's PyQt5 (the groundsystem extra) is missing"""
+    if importlib.util.find_spec("PyQt5") is None:
+        raise RuntimeError(
+            "the cFS GroundSystem GUI needs PyQt5: pip install 'fprime-cfs[groundsystem]'"
+        )
+
+
 def launch_ground_system(ground_system_dir: Path):
     """Launch the cFS GroundSystem GUI
 
@@ -147,10 +155,6 @@ def launch_ground_system(ground_system_dir: Path):
     entire process group, which would otherwise take the runner (and the atexit cleanup
     of the temporary configuration directory) down with it.
     """
-    if importlib.util.find_spec("PyQt5") is None:
-        raise RuntimeError(
-            "the cFS GroundSystem GUI needs PyQt5: pip install 'fprime-cfs[groundsystem]'"
-        )
     print("[INFO] Launching the cFS GroundSystem")
     process = subprocess.Popen(
         [sys.executable, str(ground_system_dir / "GroundSystem.py")],
@@ -191,6 +195,7 @@ def main():
     """Main entrypoint for the F Prime cFS GroundSystem runner"""
     parsed_args = parse_args()
     try:
+        require_ground_system_gui()
         dictionary = Dictionary(parsed_args.dictionary)
         ground_system_dir = construct_ground_system(parsed_args, dictionary)
 

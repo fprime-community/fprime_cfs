@@ -4,11 +4,11 @@ Selected with `fprime-gds --communication-selection cfs-lab`. Commands are sent 
 datagrams to CI_LAB (default port 1234) and telemetry is received from TO_LAB (default
 port 2234), the same path the cFS GroundSystem uses. TO_LAB only transmits after it is
 told where to: the adapter sends the TO_LAB enable-output command when the link opens
-and repeats it while no telemetry arrives: every second until the first telemetry packet
-(CI_LAB may not be listening yet when the GDS starts), then at a configurable interval, so
+and repeats it while no telemetry arrives: every second for the first interval (CI_LAB may
+not be listening yet when the GDS starts), then at a configurable interval, so
 a cFS instance started or restarted after the GDS begins transmitting without manual
 intervention. The repeat costs one TO_LAB "output enabled" event per interval on a quiet
-system.
+system, one per second during the first interval after the GDS starts.
 
 The lab applications carry data over plain UDP with no authentication or integrity
 protection; this link is for isolated lab and bench networks only.
@@ -26,8 +26,8 @@ LOGGER = logging.getLogger("cfs_lab_link")
 
 # Number of enable-output datagrams sent when the link opens (UDP is unacknowledged, the command is idempotent)
 ENABLE_OUTPUT_ATTEMPTS = 3
-# Until the first telemetry arrives the enable-output command is repeated this often (cFS
-# started alongside the GDS has no CI_LAB listening yet when open() sends its attempts)
+# For one interval after open(), until telemetry arrives, the enable-output command is
+# repeated this often (cFS started alongside the GDS has no CI_LAB listening yet)
 STARTUP_RETRY_SECONDS = 1.0
 # Default telemetry silence after which the enable-output command is repeated (once); 0 disables repeats
 DEFAULT_ENABLE_OUTPUT_INTERVAL_SECONDS = 30.0
@@ -56,6 +56,7 @@ class CfsLabAdapter(UdpAdapter):
         )
         self.last_received = None
         self.last_enabled = None
+        self.opened_at = None
 
     def __repr__(self):
         """String representation for logging"""
@@ -64,6 +65,7 @@ class CfsLabAdapter(UdpAdapter):
     def open(self):
         """Open the UDP sockets and enable TO_LAB's output toward this host"""
         super().open()
+        self.opened_at = time.monotonic()
         self.enable_output(ENABLE_OUTPUT_ATTEMPTS)
 
     def read(self, timeout=0.500):
@@ -79,13 +81,22 @@ class CfsLabAdapter(UdpAdapter):
     def is_due(self, now: float) -> bool:
         """Whether telemetry silence warrants repeating the enable-output command
 
-        Before the first telemetry packet the retry period is STARTUP_RETRY_SECONDS (or the
-        interval if shorter); afterwards it is the configured interval.
+        For one interval after open(), while no telemetry has arrived, the retry period is
+        STARTUP_RETRY_SECONDS (or the interval if shorter) so a cFS started alongside the
+        GDS is enabled promptly; afterwards it is the configured interval, so a
+        misconfigured destination costs TO_LAB one command per interval, not one per second.
         """
         if self.enable_packet is None or self.enable_interval <= 0:
             return False
-        if self.last_received is None:
+        starting = (
+            self.last_received is None
+            and self.opened_at is not None
+            and now - self.opened_at < self.enable_interval
+        )
+        if starting:
             period = min(STARTUP_RETRY_SECONDS, self.enable_interval)
+        elif self.last_received is None:
+            period = self.enable_interval
         else:
             period = self.enable_interval
             if now - self.last_received < period:
@@ -159,7 +170,8 @@ class CfsLabAdapter(UdpAdapter):
                 "dest": "enable_interval",
                 "type": float,
                 "default": DEFAULT_ENABLE_OUTPUT_INTERVAL_SECONDS,
-                "help": "Seconds of telemetry silence after which the enable-output command is repeated; "
+                "help": "Seconds of telemetry silence after which the enable-output command is repeated "
+            "(every second during the first interval); 0 never repeats"
                 "0 never repeats. Default: %(default)s",
             },
         }

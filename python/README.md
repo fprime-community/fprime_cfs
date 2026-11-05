@@ -12,7 +12,8 @@ deployment.
 ## Installation
 
 ```bash
-pip install ./python  # from the fprime_cfs checkout root
+pip install ./python                 # from the fprime_cfs checkout root: GDS plugins + tools
+pip install './python[groundsystem]'  # adds PyQt5 for the fprime-cfs GroundSystem runner
 ```
 
 ## F Prime GDS plugins
@@ -24,8 +25,9 @@ a cFS system through the standard lab applications:
 - `cfs-lab` communication plugin: sends commands as UDP datagrams to CI_LAB (default port
   `1234`) and receives telemetry from TO_LAB (default port `2234`). It sends the TO_LAB
   enable-output command when the link opens and repeats it while no telemetry arrives: every
-  second until the first telemetry packet, then after every `--to-lab-enable-interval`
-  seconds (default 30, 0 never), so cFS may be started or restarted after the GDS (expect
+  second during the first interval, then after every `--to-lab-enable-interval`
+  seconds (default 30; 0 disables every repeat, including the start-up ones), so cFS may be
+  started or restarted after the GDS (expect
   up to one interval of silence after a restart). Options: `--cfs-address`, `--ci-lab-port`,
   `--to-lab-port`, `--telemetry-destination` (IPv4 dotted quad of the GDS host as seen from
   cFS; TO_LAB takes no hostnames),
@@ -79,7 +81,8 @@ The cFS application itself may be launched by the runner by passing `--app
 `fprime-gds`; pass `--no-app`/`-n` to manage the application yourself. Extra application
 arguments may be given with `--application-arguments`.
 
-The GroundSystem GUI has its own dependencies (PyQt5, pyzmq); install them from the
+The GroundSystem GUI needs PyQt5, installed by the `groundsystem` extra
+(`pip install 'fprime-cfs[groundsystem]'`), and pyzmq, which fprime-gds provides; or install them from the
 cFS-GroundSystem checkout before running.
 
 Telemetry decoding assumes the default `Fw.Time` serialization (U16 time base, U8 time

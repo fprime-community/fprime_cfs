@@ -8,6 +8,7 @@ from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_cfs.framing import FUNCTION_CODE_CONSTANT, CfsFramerDeframer
 from fprime_cfs.lab_link import ENABLE_OUTPUT_ATTEMPTS, CfsLabAdapter
 from fprime_cfs.packets import (
+    MAX_PACKET_SIZE,
     build_command_packet,
     command_checksum,
     to_lab_enable_output_packet,
@@ -74,7 +75,7 @@ def test_deframe_discards_packet_without_secondary_header(framer, caplog):
     raw = telemetry_packet(FW_PACKET_TELEM, struct.pack(">HI", FW_PACKET_TELEM, 42), sec_hdr=False)
     packet, leftover, discarded = framer.deframe(raw)
     assert packet is None and leftover == b"" and discarded == raw
-    assert "without cFS telemetry header" in caplog.text
+    assert "not a cFS telemetry packet header" in caplog.text
 
 
 def test_deframe_all_splits_concatenated_datagrams(framer):
@@ -114,6 +115,15 @@ def test_deframe_discards_non_space_packet(framer):
     assert discarded == garbage
 
 
+def test_deframe_delivers_packet_behind_discarded_command(framer):
+    command = build_command_packet(0, 0, b"\x00\x00\x01")
+    payload = struct.pack(">HI", FW_PACKET_LOG, 2)
+    packet, leftover, discarded = framer.deframe(
+        command + telemetry_packet(FW_PACKET_LOG, payload)
+    )
+    assert packet == payload and leftover == b"" and discarded == command
+
+
 def test_deframe_discards_oversized_length_and_resyncs(framer):
     good = telemetry_packet(0x0802, b"\x55" * 4, 1)
     bogus = struct.pack(">HHH", 0x0802, 0xC000, 0xFFFF) + b"\x00" * 10
@@ -123,19 +133,38 @@ def test_deframe_discards_oversized_length_and_resyncs(framer):
     assert leftover == b""
 
 
-def test_adapter_write_rejects_empty_frame():
-    adapter = make_adapter()
-    assert adapter.write(b"") is False
-    assert adapter.send_socket.sent == []
-    assert adapter.write(b"\x01") is True
+def test_deframe_resyncs_past_command_header_without_waiting(framer):
+    good = telemetry_packet(0x0802, b"\x55" * 4, 1)
+    bogus_cmd = struct.pack(">HHH", 0x1802, 0xC000, 0x7FFF) + b"\x00" * 2
+    packet, leftover, discarded = framer.deframe(bogus_cmd + good)
+    assert packet == b"\x55" * 4 and discarded == bogus_cmd and leftover == b""
+
+
+def test_frame_drops_packet_too_large_for_software_bus(framer, caplog):
+    assert framer.frame(b"\x00\x00" + bytes(MAX_PACKET_SIZE)) == b""
+    assert "larger than a cFS software bus message" in caplog.text
 
 
 def test_frame_drops_packet_without_dictionary_apid(framer, caplog):
     assert framer.frame(b"\xff\xff\x01") == b""
     assert framer.frame(b"\x00") == b""
     assert "no cFS APID" in caplog.text
-    assert framer.frame(b"\x08\x00\x01") == b""  # ComCfg.Apid.INVALID_UNINITIALIZED
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 2
+
+
+class InvalidApid:
+    """Stands in for a dictionary ComCfg.Apid carrying INVALID_UNINITIALIZED = 0x0800"""
+
+    numeric_value = 0x0800
+
+    def deserialize(self, data, offset=0):
+        pass
+
+
+def test_frame_drops_descriptor_outside_apid_field(framer, caplog):
+    framer.apid_obj = InvalidApid()
+    assert framer.frame(b"\x08\x00\x01") == b""
+    assert "is not a cFS APID" in caplog.text
 
 
 def test_framer_rejects_dictionary_without_function_code(monkeypatch):
@@ -261,6 +290,21 @@ def test_adapter_retries_every_second_until_first_telemetry(monkeypatch, clock):
     clock[0] += 1.0
     adapter.read()  # a full interval of silence: resend
     assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 3
+
+
+def test_adapter_startup_retry_ends_after_one_interval(monkeypatch, clock):
+    adapter = stubbed_adapter(monkeypatch)
+    adapter.open()
+    for _ in range(29):
+        clock[0] += 1.0
+        adapter.read()
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 29
+    clock[0] += 1.0
+    adapter.read()  # one interval after open with no telemetry: slow regime, no resend yet
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 29
+    clock[0] += 29.0
+    adapter.read()  # a full interval after the last attempt: resend
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 30
 
 
 def test_adapter_repeats_enable_only_while_silent(monkeypatch, clock):

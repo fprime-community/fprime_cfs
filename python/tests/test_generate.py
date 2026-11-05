@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import fprime_cfs.__main__ as runner
-from fprime_cfs.__main__ import enable_telemetry
+from fprime_cfs.__main__ import enable_telemetry, require_ground_system_gui
 from fprime_cfs.commands import generate_commands
 from fprime_cfs.dictionary import Dictionary, DictionaryError
 from fprime_cfs.generate import generate
@@ -400,3 +400,9 @@ def test_enable_telemetry_destination_too_long():
     )
     with pytest.raises(ValueError, match="not a dotted-quad IPv4"):
         enable_telemetry(args)
+
+
+def test_require_ground_system_gui_names_the_extra(monkeypatch):
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
+    with pytest.raises(RuntimeError, match=r"fprime-cfs\[groundsystem\]"):
+        require_ground_system_gui()
