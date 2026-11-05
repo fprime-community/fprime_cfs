@@ -18,19 +18,15 @@ CfsAppBridge ::CfsAppBridge(const char *const compName) : CfsAppBridgeComponentB
 
 CfsAppBridge ::~CfsAppBridge() {}
 
-void CfsAppBridge ::configure(const ComCfg::Apid::T commandApid)
-{
-    this->m_commandApid = commandApid;
-}
-
 // ----------------------------------------------------------------------
 // Handler implementations for typed input ports
 // ----------------------------------------------------------------------
 
-void CfsAppBridge ::cfsCommandIn_handler(FwIndexType portNum, U8 functionCode, Fw::Buffer &data)
+void CfsAppBridge ::cfsCommandIn_handler(FwIndexType portNum, const ComCfg::Apid &apid, U8 functionCode,
+                                         Fw::Buffer &data)
 {
     ComCfg::FrameContext context;
-    context.set_apid(this->m_commandApid);
+    context.set_apid(apid);
     context.set_functionCode(functionCode);
     this->copyAndSend(data.getData(), data.getSize(), context);
     // The incoming buffer was copied; return it to its sender

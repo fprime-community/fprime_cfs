@@ -41,7 +41,8 @@ class SchAppDriver final : public SchAppDriverComponentBase {
     //! Port receiving routed cFS scheduler command messages. Emits one tick
     //! on CycleOut for messages with the expected function code, and returns
     //! the buffer via bufferReturnOut.
-    void cfsCommandIn_handler(FwIndexType portNum,  //!< The port number
+    void cfsCommandIn_handler(FwIndexType portNum,       //!< The port number
+                              const ComCfg::Apid& apid,  //!< The APID of the message
                               U8 functionCode,      //!< Function code from the cFS command secondary header
                               Fw::Buffer& data      //!< Command payload
                               ) override;

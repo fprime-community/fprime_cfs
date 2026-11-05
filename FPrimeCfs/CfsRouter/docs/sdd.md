@@ -41,10 +41,10 @@ unknown route).
 ## Secondary headers
 
 - cFS command secondary header (2 bytes): `{U8 FunctionCode, U8 Checksum}`. The function code is forwarded on
-  `cfsCommandOut`; the payload is the data after the secondary header.
+  `cfsCommandOut` together with the packet APID; the payload buffer holds only the data after the secondary header.
 - cFS telemetry secondary header (10 bytes, big-endian): 4-byte seconds, 2-byte subseconds (the most
   significant 16 bits of the 2^-32 subseconds value), then the 4 spare bytes cFE adds to
-  `CFE_MSG_TelemetryHeader_t` (payload at offset 16 of the packet). The time is forwarded on `cfsTelemetryOut` as a `CfsTime`
+  `CFE_MSG_TelemetryHeader_t` (payload at offset 16 of the packet). The APID and the time are forwarded on `cfsTelemetryOut` (time as a `CfsTime`
   (`seconds: U32`, `subseconds: U32`); the payload is the data after the secondary header.
 - F Prime commands arrive framed as cFS commands: the 2-byte command secondary header precedes the F Prime
   command data and is excluded from the copied data (a command without it is not routed; see below).

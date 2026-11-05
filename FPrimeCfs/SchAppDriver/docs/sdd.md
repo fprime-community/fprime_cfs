@@ -24,7 +24,7 @@ messages are dispatched and no ticks are produced.
 
 | Name | Description | Rationale | Validation |
 |---|---|---|---|
-| REQ-SchAppDriver-001 | The component shall receive scheduler messages as cFS commands (function code + payload) on an F Prime input port (`FPrimeCfs.CfsCommand`) fed from the CfsRouter's cFS command route. | Scheduler messages are cFS command messages arriving via the software bus and routed through the CfsBridge/deframer/CfsRouter path. | Unit test |
+| REQ-SchAppDriver-001 | The component shall receive scheduler messages as cFS commands (APID + function code + payload) on an F Prime input port (`FPrimeCfs.CfsCommand`) fed from the CfsRouter's cFS command route. | Scheduler messages are cFS command messages arriving via the software bus and routed through the CfsBridge/deframer/CfsRouter path. | Unit test |
 | REQ-SchAppDriver-002 | Upon receipt of a scheduler message, the component shall emit exactly one tick on `CycleOut` (with an `Os::RawTime` timestamp) to drive `Svc::RateGroupDriver`. | The cFS scheduler governs the fundamental tick rate of the F Prime rate group tree. | Unit test |
 | REQ-SchAppDriver-003 | The component shall return ownership of every received buffer via `bufferReturnOut` after processing. | The CfsRouter's cFS routes transfer buffer ownership to the receiver, which must return it via the router's `bufferReturnIn` port. | Unit test |
 | REQ-SchAppDriver-004 | The component shall validate the function code of each received message against the configured expected value; messages with an unexpected function code shall produce a warning event and no tick. | Only the expected scheduler message should drive the rate group tree; other messages indicate a routing or configuration error. | Unit test |

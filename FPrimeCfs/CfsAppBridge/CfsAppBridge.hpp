@@ -25,16 +25,14 @@ public:
     //! Destroy CfsAppBridge object
     ~CfsAppBridge();
 
-    //! Configure the APID used for data received on cfsCommandIn
-    void configure(const ComCfg::Apid::T commandApid);
-
 private:
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
     //! Handler implementation for cfsCommandIn
-    void cfsCommandIn_handler(FwIndexType portNum, U8 functionCode, Fw::Buffer &data) override;
+    void cfsCommandIn_handler(FwIndexType portNum, const ComCfg::Apid &apid, U8 functionCode,
+                              Fw::Buffer &data) override;
 
     //! Handler implementation for comIn
     void cfsDataIn_handler(FwIndexType portNum, Fw::Buffer &data, const ComCfg::FrameContext &context) override;
@@ -56,13 +54,6 @@ private:
     //! unknown APID (with a warning event) when the descriptor cannot be read
     //! or is not a known packet type.
     ComCfg::Apid::T mapDescriptorToApid(Fw::ComBuffer &data);
-
-    // ----------------------------------------------------------------------
-    // Member variables
-    // ----------------------------------------------------------------------
-
-    //! APID used for data received on cfsCommandIn
-    ComCfg::Apid::T m_commandApid = ComCfg::Apid::FW_PACKET_UNKNOWN;
 };
 
 } // namespace FPrimeCfs

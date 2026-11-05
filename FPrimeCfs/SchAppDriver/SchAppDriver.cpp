@@ -25,7 +25,10 @@ void SchAppDriver ::configure(U8 expectedFunctionCode) {
 // Handler implementations for typed input ports
 // ----------------------------------------------------------------------
 
-void SchAppDriver ::cfsCommandIn_handler(FwIndexType portNum, U8 functionCode, Fw::Buffer& data) {
+void SchAppDriver ::cfsCommandIn_handler(FwIndexType portNum,
+                                         const ComCfg::Apid& apid,
+                                         U8 functionCode,
+                                         Fw::Buffer& data) {
     if (functionCode == this->m_expectedFunctionCode) {
         Os::RawTime timestamp;
         timestamp.now();

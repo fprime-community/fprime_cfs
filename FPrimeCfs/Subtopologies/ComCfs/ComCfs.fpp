@@ -50,12 +50,7 @@ module ComCfs {
     }
 
     @ App bridge for outgoing cFS commands, feeding the cFS command framer
-    instance cmdBridge: FPrimeCfs.CfsAppBridge base id ComCfsConfig.BASE_ID + 0x03000 \
-    {
-        phase Fpp.ToCpp.Phases.configComponents """
-        ComCfs::cmdBridge.configure(ComCfs::BridgeConfig::commandApid);
-        """
-    }
+    instance cmdBridge: FPrimeCfs.CfsAppBridge base id ComCfsConfig.BASE_ID + 0x03000
 
     @ App bridge for outgoing telemetry and events, feeding the cFS telemetry framer
     instance tlmBridge: FPrimeCfs.CfsAppBridge base id ComCfsConfig.BASE_ID + 0x04000

@@ -24,7 +24,7 @@ flowchart TD
 
 Two `FPrimeCfs.CfsAppBridge` instances feed the two cFS secondary framers:
 
-- `cmdBridge` accepts outgoing cFS commands (function code + payload) on the exported `cfsCommandIn` port and feeds
+- `cmdBridge` accepts outgoing cFS commands (destination APID + function code + payload) on the exported `cfsCommandIn` port and feeds
   the `FPrimeCfs.CfsCmdFramer`, which prepends the 2-byte cFS command secondary header.
 - `tlmBridge` accepts outgoing F Prime com buffers (telemetry, events, packetized telemetry) on the exported `comIn`
   port array and feeds the `FPrimeCfs.CfsTlmFramer`, which prepends the 10-byte cFS telemetry secondary header (6-byte time plus the 4 spare bytes of `CFE_MSG_TelemetryHeader_t`). The
@@ -42,10 +42,10 @@ framers allocate from and deallocate to the same shared buffer pool (`commsBuffe
 return a buffer allocated by the other. Projects overriding the buffer allocation must preserve this shared-pool
 invariant.
 
-`cmdBridge` is configured with the command APID `ComCfs::BridgeConfig::commandApid` defined in
-`ComCfsConfig/ComCfsSubtopologyConfig.cpp`. Projects override the configuration module
-(`register_fprime_config` `CONFIGURATION_OVERRIDES`) to supply the command message ID APID of the destination cFS
-application, as well as queue sizes, priorities, and buffer pool sizes in `ComCfsConfig.fpp`.
+`cmdBridge` needs no APID configuration: every `cfsCommandIn` call carries the destination APID (the command
+message ID APID of the target cFS application) together with the function code. Projects override the configuration
+module (`register_fprime_config` `CONFIGURATION_OVERRIDES`) for queue sizes, priorities, and buffer pool sizes in
+`ComCfsConfig.fpp`.
 
 ## Uplink
 
@@ -74,7 +74,7 @@ be connected to release uplink flow control.
 
 | Port | Direction | Description |
 |---|---|---|
-| `cfsCommandIn` | in | Outgoing cFS commands (function code + payload) into the command app bridge |
+| `cfsCommandIn` | in | Outgoing cFS commands (destination APID + function code + payload) into the command app bridge |
 | `cfsCommandDataIn` | in | Raw cFS command payloads with a source-built frame context (APID, function code) |
 | `cfsCommandDataReturnOut` | out | Ownership return for `cfsCommandDataIn` buffers |
 | `cfsTelemetryDataIn` | in | Raw cFS telemetry payloads with a source-built frame context (APID); time-tagged with the current time |
@@ -84,7 +84,7 @@ be connected to release uplink flow control.
 | `cfsTimeConvertOut` | out | F Prime to cFS time conversion (connect to `FPrimeCfs.CfsSystemTime`) |
 | `commandOut` | out (array) | Routed F Prime command packets |
 | `cmdResponseIn` | in | Command responses back into the APID router |
-| `cfsCommandOut` | out (array) | Routed cFS commands (function code + payload) |
+| `cfsCommandOut` | out (array) | Routed cFS commands (APID + function code + payload) |
 | `cfsTelemetryOut` | out (array) | Routed cFS telemetry (time + payload) |
 | `bufferReturnIn` | in | Ownership return for `cfsCommandOut` / `cfsTelemetryOut` buffers |
 | `fileUplinkOut` | out | Uplinked file packets |
