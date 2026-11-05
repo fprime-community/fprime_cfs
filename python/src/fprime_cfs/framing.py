@@ -64,8 +64,9 @@ class CfsFramerDeframer(FramerDeframer):
     def frame(self, data):
         """Wrap an F Prime packet in a cFS command packet on the APID of its descriptor
 
-        A packet whose descriptor is not a dictionary APID is dropped rather than raised, so
-        that one bad client packet cannot stop the uplink: an empty frame is returned, which
+        A packet whose descriptor is not a dictionary APID, or that would not fit in a cFS
+        software bus message, is dropped rather than raised, so that one bad client packet
+        cannot stop the uplink: an empty frame is returned, which
         CfsLabAdapter.write refuses to send (fprime-gds then reports a failed send).
         """
         try:
@@ -81,7 +82,9 @@ class CfsFramerDeframer(FramerDeframer):
             return b""
         if len(data) + PRIMARY_HEADER_SIZE + COMMAND_SECONDARY_HEADER_SIZE > MAX_PACKET_SIZE:
             LOGGER.warning(
-                "Dropping %d-byte packet: larger than a cFS software bus message", len(data)
+                "Dropping %d-byte packet: larger than a cFS software bus message (CI_LAB's "
+                "ingest buffer, CI_LAB_PLATFORM_MAX_INGEST, is smaller still)",
+                len(data),
             )
             return b""
         sequence_count = self.uplink_sequence_counts.get(apid, 0)
@@ -96,8 +99,9 @@ class CfsFramerDeframer(FramerDeframer):
         Returns the F Prime packet, the bytes following it, and any discarded bytes.
         Data shorter than the packet it starts is kept as leftover until more arrives.
         Bytes that do not start a cFS telemetry packet (version, type, secondary-header
-        or sequence flags wrong, length out of bounds, or truncated) are discarded and the
-        scan continues within the same call, so a good packet behind them is delivered without waiting for more
+        or sequence flags wrong, length above the software bus maximum) are discarded at
+        once; a complete packet too short for its headers is discarded on arrival. In both
+        cases the scan continues within the same call, so a good packet behind them is delivered without waiting for more
         data, as fprime-gds's deframe_all expects.
         """
         discarded = b""

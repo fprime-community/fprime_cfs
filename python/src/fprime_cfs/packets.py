@@ -22,7 +22,8 @@ SEQUENCE_FLAGS_UNSEGMENTED = 0xC000
 SEQUENCE_COUNT_MASK = 0x3FFF
 SEQUENCE_COUNT_MODULUS = SEQUENCE_COUNT_MASK + 1
 
-# Sanity bound on the announced packet length: the cFS default CFE_MISSION_SB_MAX_SB_MSG_SIZE.
+# Bound on a packet's length, announced (downlink) or built (uplink): the cFS default
+# CFE_MISSION_SB_MAX_SB_MSG_SIZE.
 # A mission raising that limit above 32 KiB must raise this bound too.
 MAX_PACKET_SIZE = 32768
 

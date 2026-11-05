@@ -26,6 +26,6 @@ fprime_cfs_framing = "fprime_cfs.framing:CfsFramerDeframer"
 where = ["src"]
 
 [project.optional-dependencies]
-# cFS GroundSystem GUI launched by fprime-cfs: pip install 'fprime-cfs[groundsystem]'
+# cFS GroundSystem GUI launched by fprime-cfs: pip install './python[groundsystem]'
 groundsystem = ["PyQt5>=5.15,<6"]
 test = ["pytest>=6"]

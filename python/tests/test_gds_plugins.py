@@ -124,6 +124,24 @@ def test_deframe_delivers_packet_behind_discarded_command(framer):
     assert packet == payload and leftover == b"" and discarded == command
 
 
+def test_deframe_bounds_are_inclusive_and_truncated_continues(framer):
+    # a header announcing exactly MAX_PACKET_SIZE bytes is plausible: it is awaited, not dropped
+    at_max = struct.pack(">HHH", 0x0802, 0xC000, MAX_PACKET_SIZE - 7)
+    packet, leftover, discarded = framer.deframe(at_max)
+    assert packet is None and leftover == at_max and discarded == b""
+    # a complete packet too short for its headers is discarded and the scan continues
+    short = struct.pack(">HHH", 0x0802, 0xC000, 2) + b"\x00" * 3
+    good = telemetry_packet(0x0802, b"\x55" * 4, 1)
+    packet, leftover, discarded = framer.deframe(short + good)
+    assert packet == b"\x55" * 4 and leftover == b"" and discarded == short
+
+
+def test_frame_accepts_packet_filling_a_software_bus_message(framer):
+    payload = b"\x00\x00" + bytes(MAX_PACKET_SIZE - 8 - 2)
+    assert len(framer.frame(payload)) == MAX_PACKET_SIZE
+    assert framer.frame(payload + b"\x00") == b""
+
+
 def test_deframe_discards_oversized_length_and_resyncs(framer):
     good = telemetry_packet(0x0802, b"\x55" * 4, 1)
     bogus = struct.pack(">HHH", 0x0802, 0xC000, 0xFFFF) + b"\x00" * 10
@@ -135,9 +153,12 @@ def test_deframe_discards_oversized_length_and_resyncs(framer):
 
 def test_deframe_resyncs_past_command_header_without_waiting(framer):
     good = telemetry_packet(0x0802, b"\x55" * 4, 1)
-    bogus_cmd = struct.pack(">HHH", 0x1802, 0xC000, 0x7FFF) + b"\x00" * 2
+    bogus_cmd = struct.pack(">HHH", 0x1802, 0xC000, 100) + b"\x00" * 2  # plausible length
     packet, leftover, discarded = framer.deframe(bogus_cmd + good)
     assert packet == b"\x55" * 4 and discarded == bogus_cmd and leftover == b""
+    segmented = struct.pack(">HHH", 0x0802, 0x4000, 100) + b"\x00" * 2  # flags: first segment
+    packet, leftover, discarded = framer.deframe(segmented + good)
+    assert packet == b"\x55" * 4 and discarded == segmented and leftover == b""
 
 
 def test_frame_drops_packet_too_large_for_software_bus(framer, caplog):
@@ -343,6 +364,12 @@ def test_adapter_write_rejects_empty_frame():
     assert adapter.write(b"") is False
     assert adapter.send_socket.sent == []
     assert adapter.write(b"\x01") is True
+
+
+def test_adapter_check_arguments_rejects_non_finite_interval():
+    for bad in (float("inf"), float("nan"), -1.0):
+        with pytest.raises(ValueError, match="finite"):
+            CfsLabAdapter.check_arguments("127.0.0.1", 1234, 2234, "127.0.0.1", 0x1880, True, bad)
 
 
 def test_adapter_check_arguments_rejects_bad_destination():

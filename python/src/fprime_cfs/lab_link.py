@@ -15,6 +15,7 @@ protection; this link is for isolated lab and bench networks only.
 """
 
 import logging
+import math
 import time
 
 from fprime_gds.common.communication.adapters.udp import UdpAdapter
@@ -170,9 +171,9 @@ class CfsLabAdapter(UdpAdapter):
                 "dest": "enable_interval",
                 "type": float,
                 "default": DEFAULT_ENABLE_OUTPUT_INTERVAL_SECONDS,
-                "help": "Seconds of telemetry silence after which the enable-output command is repeated "
-            "(every second during the first interval); 0 never repeats"
-                "0 never repeats. Default: %(default)s",
+                "help": "Seconds of telemetry silence after which the enable-output command is "
+                "repeated (every second during the first interval); 0 never repeats. "
+                "Default: %(default)s",
             },
         }
 
@@ -191,8 +192,10 @@ class CfsLabAdapter(UdpAdapter):
         UdpAdapter.check_arguments(cfs_address, ci_lab_port, to_lab_port)
         if enable_telemetry:
             to_lab_enable_output_packet(telemetry_destination, to_lab_message_id)
-        if enable_interval < 0:
-            raise ValueError("TO_LAB enable interval must not be negative")
+        if not math.isfinite(enable_interval) or enable_interval < 0:
+            raise ValueError(
+                "--to-lab-enable-interval must be a finite number of seconds, 0 or more"
+            )
 
     @classmethod
     @gds_plugin_implementation

@@ -41,7 +41,10 @@ a cFS system through the standard lab applications:
   CCSDS primary header and the 10-byte cFS telemetry secondary header (the time and spare
   bytes that complete the 16-byte `CFE_MSG_TelemetryHeader_t`) from each telemetry packet
   TO_LAB forwards, the ground-side inverse of
-  `FPrimeCfs.CfsCmdFramer`/`FPrimeCfs.CfsTlmFramer`.
+  `FPrimeCfs.CfsCmdFramer`/`FPrimeCfs.CfsTlmFramer`. Commands must fit CI_LAB's ingest buffer
+  (`CI_LAB_PLATFORM_MAX_INGEST`, 768 bytes by default): CI_LAB truncates larger datagrams and
+  drops them with `CI_LAB_INGEST_LEN_ERR_EID`; the plugin itself only rejects packets larger
+  than a software bus message.
 
 ```bash
 fprime-gds --communication-selection cfs-lab --framing-selection cfs \
@@ -82,8 +85,8 @@ The cFS application itself may be launched by the runner by passing `--app
 arguments may be given with `--application-arguments`.
 
 The GroundSystem GUI needs PyQt5, installed by the `groundsystem` extra
-(`pip install 'fprime-cfs[groundsystem]'`), and pyzmq, which fprime-gds provides; or install them from the
-cFS-GroundSystem checkout before running.
+(`pip install './python[groundsystem]'` from the fprime_cfs checkout), and pyzmq, which
+fprime-gds provides.
 
 Telemetry decoding assumes the default `Fw.Time` serialization (U16 time base, U8 time
 context, U32 seconds, U32 microseconds); deployments overriding the time base/context

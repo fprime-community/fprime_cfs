@@ -144,7 +144,7 @@ def require_ground_system_gui():
     """Fail before anything is launched when the GUI's PyQt5 (the groundsystem extra) is missing"""
     if importlib.util.find_spec("PyQt5") is None:
         raise RuntimeError(
-            "the cFS GroundSystem GUI needs PyQt5: pip install 'fprime-cfs[groundsystem]'"
+            "the cFS GroundSystem GUI needs PyQt5: pip install '<fprime_cfs>/python[groundsystem]'"
         )
 
 

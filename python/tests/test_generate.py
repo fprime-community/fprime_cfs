@@ -404,5 +404,5 @@ def test_enable_telemetry_destination_too_long():
 
 def test_require_ground_system_gui_names_the_extra(monkeypatch):
     monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
-    with pytest.raises(RuntimeError, match=r"fprime-cfs\[groundsystem\]"):
+    with pytest.raises(RuntimeError, match=r"python\[groundsystem\]"):
         require_ground_system_gui()
