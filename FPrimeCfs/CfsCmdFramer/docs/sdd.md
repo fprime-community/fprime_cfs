@@ -25,10 +25,10 @@ secondary header flag in the CCSDS primary header.
 ## Checksum
 
 The checksum byte follows the cFS `CFE_MSG` convention: the XOR of every byte of the complete packet, seeded with
-`0xFF`, must equal zero. Since the CCSDS primary header is written downstream, this component predicts its
-contents from the frame context: PVN 0, packet type 1 (command), secondary header flag set, the APID and sequence
-count from the context, sequence flags `0b11` (unsegmented), and the standard length field. The downstream
-`Svc.Ccsds.SpacePacketFramer` writes exactly these values when it uses the context's APID and sequence count.
+`0xFF`, must equal zero. Since the CCSDS primary header is written downstream, `FPrimeCfs::CfsChecksum`
+(`FPrimeCfs/Types`, shared with `CfsRouter`) predicts its contents from the frame context: PVN 0, packet type 1
+(command), secondary header flag set, the APID, sequence flags and sequence count from the context, and the standard
+length field. The downstream `Svc.Ccsds.SpacePacketFramer` writes exactly these values from the same context fields.
 
 Note: the sequence count in the context is assigned by the downstream `Svc.Ccsds.SpacePacketFramer` after this
 stage runs, so the checksum written here is only a placeholder for the final header. `FPrimeCfs::CfsBridge`

@@ -4,6 +4,7 @@
 // \brief  cpp file for CfsBridge component implementation class
 // ======================================================================
 
+#include "FPrimeCfs/Types/CfsChecksum.hpp"
 #include "FPrimeCfs/CfsBridge/CfsBridge.hpp"
 #include "Fw/Logger/Logger.hpp"
 #include "config/FppConstantsAc.hpp"
@@ -255,12 +256,8 @@ CFE_Status_t CfsBridge ::transmitWrappedCommand(const U8* packet, const FwSizeTy
     wrapped[CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE + 1] = 0;
     (void)std::memcpy(&wrapped[CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE + CFS_BRIDGE_CMD_SEC_HDR_SIZE],
                       &packet[CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE], size - CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE);
-    // Checksum per CFE_MSG conventions: XOR of every packet byte with 0xFF must equal zero
-    U8 checksum = 0xFF;
-    for (FwSizeType i = 0; i < wrappedSize; i++) {
-        checksum ^= wrapped[i];
-    }
-    wrapped[CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE + 1] = checksum;
+    // Checksum per CFE_MSG conventions over the complete packet (checksum byte zero)
+    wrapped[CFS_BRIDGE_SPACE_PACKET_HEADER_SIZE + 1] = CfsChecksum::xorBytes(CfsChecksum::SEED, wrapped, wrappedSize);
     // Cast justified: m_wrapStorage is alignas(CFE_MSG_Message_t) and holds a complete space packet
     return CFE_SB_TransmitMsg(reinterpret_cast<CFE_MSG_Message_t*>(wrapped), false);
 }

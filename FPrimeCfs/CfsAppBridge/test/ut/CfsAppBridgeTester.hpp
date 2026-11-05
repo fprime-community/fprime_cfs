@@ -45,6 +45,9 @@ public:
     //! An allocation that is too small drops the data
     void testAllocationFailure();
 
+    //! An allocation that is too small drops raw data and still returns it with its context
+    void testCfsDataAllocationFailure();
+
     //! dataReturnIn deallocates the outgoing buffer
     void testDataReturn();
 
