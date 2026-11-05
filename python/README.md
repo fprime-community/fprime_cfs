@@ -1,7 +1,9 @@
 # fprime-cfs
 
-Tooling for running the [cFS GroundSystem](https://github.com/nasa/cFS-GroundSystem) as the
-GDS for an F Prime deployment integrated through `fprime_cfs`.
+Ground tooling for cFS systems built with `fprime_cfs`: F Prime GDS plugins (`cfs-lab` link,
+`cfs` framing) that connect `fprime-gds` through CI_LAB/TO_LAB, and tools for running the
+[cFS GroundSystem](https://github.com/nasa/cFS-GroundSystem) as the GDS for an F Prime
+deployment.
 
 > **Note**: the CI_LAB/TO_LAB path used by this tooling carries commands and telemetry
 > over plain UDP with no authentication or integrity protection. It is intended for
@@ -25,12 +27,16 @@ a cFS system through the standard lab applications:
   `--to-lab-enable-interval` seconds (default 30, 0 never) without telemetry, so cFS may be
   started or restarted after the GDS. Options: `--cfs-address`, `--ci-lab-port`,
   `--to-lab-port`, `--telemetry-destination` (the GDS host as seen from cFS),
-  `--to-lab-message-id`, `--no-enable-telemetry`, `--to-lab-enable-interval`.
+  `--to-lab-message-id`, `--no-enable-telemetry`, `--to-lab-enable-interval`. TO_LAB forwards
+  to one destination at a time, so a running `fprime-gds` re-targets it away from any other
+  ground system (e.g. the cFS GroundSystem on another host) after each quiet interval; use
+  `--no-enable-telemetry` when another tool owns the TO_LAB destination.
 - `cfs` framing plugin: wraps each F Prime command packet as a cFS command packet (CCSDS
   primary header on the F Prime command APID, cFS command secondary header with the
   `ComCfg.FprimeCommandFunctionCode` dictionary constant and checksum) and strips the
-  CCSDS primary header and the 16-byte `CFE_MSG_TelemetryHeader_t` remainder (time plus
-  spare bytes) from each telemetry packet TO_LAB forwards, the ground-side inverse of
+  CCSDS primary header and the 10-byte cFS telemetry secondary header (the time and spare
+  bytes that complete the 16-byte `CFE_MSG_TelemetryHeader_t`) from each telemetry packet
+  TO_LAB forwards, the ground-side inverse of
   `FPrimeCfs.CfsCmdFramer`/`FPrimeCfs.CfsTlmFramer`.
 
 ```bash
@@ -48,7 +54,8 @@ downlink messages (telemetry `0x0801`, events `0x0802`, files `0x0803`, data pro
 
 Runs the full cFS GroundSystem GDS: generates the GroundSystem configuration from the
 F Prime dictionary, optionally launches the cFS application, and launches the
-GroundSystem GUI. The GroundSystem talks directly to the cFS software bus over UDP
+GroundSystem GUI. The F Prime GDS connects through the same CI_LAB/TO_LAB path with the
+plugins above; the GroundSystem talks directly to the cFS software bus over UDP
 through the standard lab applications: commands go to CI_LAB (default port 1234) and
 telemetry arrives from TO_LAB (default port 2234). On startup the runner sends the
 TO_LAB enable-output command (suppress with `--no-enable-telemetry`; the destination IP

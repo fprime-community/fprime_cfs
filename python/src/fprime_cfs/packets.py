@@ -8,6 +8,7 @@ helpers here build and read those layouts for the lab link (CI_LAB/TO_LAB over U
 the GDS tooling.
 """
 
+import ipaddress
 import struct
 from typing import Tuple
 
@@ -20,6 +21,9 @@ STREAM_ID_APID_MASK = 0x07FF
 SEQUENCE_FLAGS_UNSEGMENTED = 0xC000
 SEQUENCE_COUNT_MASK = 0x3FFF
 SEQUENCE_COUNT_MODULUS = SEQUENCE_COUNT_MASK + 1
+
+# CFE_MISSION_SB_MAX_SB_MSG_SIZE: no legitimate space packet announces more than this
+MAX_PACKET_SIZE = 32768
 
 PRIMARY_HEADER_FORMAT = ">HHH"
 PRIMARY_HEADER_SIZE = struct.calcsize(PRIMARY_HEADER_FORMAT)
@@ -73,13 +77,14 @@ def to_lab_enable_output_packet(
     The packet is exactly what the cFS GroundSystem's "Enable Tlm" quick button sends.
     TO_LAB consumes the destination as a NUL-terminated string within a fixed-size field.
     """
-    encoded = destination.encode("ascii")
-    if len(encoded) >= TO_LAB_DEST_IP_SIZE:
+    try:
+        ipaddress.IPv4Address(destination)
+    except ValueError as exc:
         raise ValueError(
-            f"Telemetry destination '{destination}' exceeds "
-            f"{TO_LAB_DEST_IP_SIZE - 1} characters"
-        )
-    payload = encoded.ljust(TO_LAB_DEST_IP_SIZE, b"\x00")
+            f"Telemetry destination '{destination}' is not a dotted-quad IPv4 address; "
+            "TO_LAB stores the field verbatim and silently sends nowhere otherwise"
+        ) from exc
+    payload = destination.encode("ascii").ljust(TO_LAB_DEST_IP_SIZE, b"\x00")
     return build_command_packet(
         message_id & STREAM_ID_APID_MASK, TO_LAB_OUTPUT_ENABLE_CC, payload
     )

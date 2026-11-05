@@ -8,6 +8,10 @@ space packet forwarded by TO_LAB has its primary header and 10-byte cFS telemetr
 secondary header (time plus the CFE_MSG_TelemetryHeader_t spare bytes) removed, leaving
 the bare F Prime packet the GDS decoders expect. This is the ground-side inverse of
 FPrimeCfs.CfsCmdFramer / FPrimeCfs.CfsTlmFramer.
+
+The fprime-gds SpacePacketFramerDeframer is not reused: the uplink must place the cFS
+command secondary header inside the cFE XOR checksum, and the downlink must drop the
+cFE telemetry secondary header and split datagrams that carry several packets.
 """
 
 import logging
@@ -16,8 +20,12 @@ from fprime_gds.common.communication.framing import FramerDeframer
 from fprime_gds.common.utils.config_manager import ConfigManager
 from fprime_gds.plugin.definitions import gds_plugin_implementation
 
+from fprime_gds.common.models.serialize.type_exceptions import TypeException
+
 from .packets import (
+    MAX_PACKET_SIZE,
     PRIMARY_HEADER_SIZE,
+    SEQUENCE_FLAGS_UNSEGMENTED,
     SEQUENCE_COUNT_MASK,
     SEQUENCE_COUNT_MODULUS,
     STREAM_ID_APID_MASK,
@@ -42,13 +50,27 @@ class CfsFramerDeframer(FramerDeframer):
         config = ConfigManager()
         # The APID enumeration and function code come from the deployment dictionary
         self.apid_obj = config.get_type("ComCfg.Apid")()
-        self.function_code = config.get_constant(FUNCTION_CODE_CONSTANT)
+        try:
+            self.function_code = config.get_constant(FUNCTION_CODE_CONSTANT)
+        except Exception as exc:
+            raise ValueError(
+                f"framing 'cfs' needs dictionary constant {FUNCTION_CODE_CONSTANT}; "
+                "is this an fprime_cfs deployment dictionary?"
+            ) from exc
         self.uplink_sequence_counts = {}
         self.downlink_sequence_counts = {}
 
     def frame(self, data):
-        """Wrap an F Prime packet in a cFS command packet on the APID of its descriptor"""
-        self.apid_obj.deserialize(data, offset=0)
+        """Wrap an F Prime packet in a cFS command packet on the APID of its descriptor
+
+        A packet whose descriptor is not a dictionary APID is dropped (an empty frame is
+        returned) rather than raised, so that one bad client packet cannot stop the uplink.
+        """
+        try:
+            self.apid_obj.deserialize(data, offset=0)
+        except TypeException as exc:
+            LOGGER.warning("Dropping %d-byte packet with no cFS APID: %s", len(data), exc)
+            return b""
         apid = self.apid_obj.numeric_value & STREAM_ID_APID_MASK
         sequence_count = self.uplink_sequence_counts.get(apid, 0)
         self.uplink_sequence_counts[apid] = (
@@ -66,9 +88,10 @@ class CfsFramerDeframer(FramerDeframer):
         if data is None or len(data) < PRIMARY_HEADER_SIZE:
             return None, data if data else b"", b""
         stream_id, sequence, packet_length = parse_primary_header(data)
-        if stream_id & STREAM_ID_VERSION_MASK:
-            LOGGER.warning("Discarding %d bytes: not a space packet", len(data))
-            return None, b"", bytes(data)
+        if stream_id & STREAM_ID_VERSION_MASK or packet_length > MAX_PACKET_SIZE:
+            skip = self.resync_offset(data)
+            LOGGER.warning("Discarding %d bytes: not a valid space packet header", skip)
+            return None, data[skip:], bytes(data[:skip])
         if len(data) < packet_length:
             return None, data, b""
         packet, leftover = bytes(data[:packet_length]), data[packet_length:]
@@ -87,6 +110,24 @@ class CfsFramerDeframer(FramerDeframer):
             )
             return None, leftover, packet
         return packet[payload_offset:], leftover, b""
+
+    @staticmethod
+    def resync_offset(data) -> int:
+        """Offset of the next plausible cFS telemetry header after a bad one, else len(data)
+
+        cFS always emits unsegmented packets with a secondary header, so both flags are
+        required as well as a bounded length.
+        """
+        for offset in range(1, len(data) - PRIMARY_HEADER_SIZE + 1):
+            stream_id, sequence, packet_length = parse_primary_header(data[offset:])
+            if (
+                not stream_id & STREAM_ID_VERSION_MASK
+                and stream_id & STREAM_ID_SEC_HDR
+                and sequence & SEQUENCE_FLAGS_UNSEGMENTED == SEQUENCE_FLAGS_UNSEGMENTED
+                and packet_length <= MAX_PACKET_SIZE
+            ):
+                return offset
+        return len(data)
 
     def check_sequence_count(self, apid: int, sequence: int):
         """Warn when an APID's sequence count skips, indicating dropped packets"""

@@ -57,7 +57,10 @@ jobs:
       - name: "Setup fprime_cfs_reference with fprime_cfs overlay"
         uses: nasa/fprime-actions/external-repository-setup@devel
         with:
-          target_repository: fprime-community/fprime_cfs_reference
+          # TODO: revert to fprime-community/fprime_cfs_reference devel once
+          # fprime-community/fprime_cfs_reference#44 (ci_lab/to_lab ground path) merges
+          target_repository: lestarch-autobot/fprime_cfs_reference
+          target_ref: devin/1793510000-gds-via-to-lab
           fprime_location: ./libs/fprime
           overlay_location: ./libs/fprime_cfs
       - name: "Build"
@@ -73,7 +76,7 @@ jobs:
           binary: ./core-cpu1
           binary-args: ""
           gds-args: >-
-            --ip-client --ip-port 15010
+            --communication-selection cfs-lab --framing-selection cfs
             --dictionary ${{ github.workspace }}/build-artifacts/exe/Linux/fprime_app/dict/FPrimeDeploymentTopologyDictionary.json
           pytest-args: >-
             --dictionary ${{ github.workspace }}/build-artifacts/exe/Linux/fprime_app/dict/FPrimeDeploymentTopologyDictionary.json

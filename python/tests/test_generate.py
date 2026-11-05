@@ -398,5 +398,5 @@ def test_enable_telemetry_destination_too_long():
         command_address="127.0.0.1",
         command_port=1234,
     )
-    with pytest.raises(ValueError, match="exceeds 15 characters"):
+    with pytest.raises(ValueError, match="not a dotted-quad IPv4"):
         enable_telemetry(args)

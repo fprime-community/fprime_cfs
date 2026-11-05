@@ -114,6 +114,47 @@ def test_deframe_discards_non_space_packet(framer):
     assert discarded == garbage
 
 
+def test_deframe_discards_oversized_length_and_resyncs(framer):
+    good = telemetry_packet(0x0802, b"\x55" * 4, 1)
+    bogus = struct.pack(">HHH", 0x0802, 0xC000, 0xFFFF) + b"\x00" * 10
+    packet, leftover, discarded = framer.deframe(bogus + good)
+    assert packet is None
+    assert discarded == bogus
+    assert leftover == good
+
+
+def test_frame_drops_packet_without_dictionary_apid(framer, caplog):
+    assert framer.frame(b"\xff\xff\x01") == b""
+    assert framer.frame(b"\x00") == b""
+    assert "no cFS APID" in caplog.text
+
+
+def test_enable_output_destination_must_be_ipv4():
+    with pytest.raises(ValueError):
+        to_lab_enable_output_packet("gds-host.local")
+
+
+def test_deframe_discards_short_secondary_header(framer, caplog):
+    short = struct.pack(">HHH", 0x0802, 0xC000, 2) + b"\x00" * 3
+    packet, leftover, discarded = framer.deframe(short)
+    assert packet is None and leftover == b"" and discarded == short
+    assert "truncated" in caplog.text
+
+
+def test_sequence_counts_wrap_at_14_bits(framer, caplog):
+    framer.uplink_sequence_counts[0] = 0x3FFF
+    assert struct.unpack(">H", framer.frame(b"\x00\x00\x01")[2:4])[0] == 0xFFFF
+    assert framer.uplink_sequence_counts[0] == 0
+    framer.deframe(telemetry_packet(0x0802, b"\x01", 0x3FFF))
+    framer.deframe(telemetry_packet(0x0802, b"\x01", 0))
+    assert "sequence" not in caplog.text.lower()
+
+
+def test_frame_uses_nonzero_descriptor_apid(framer):
+    framed = framer.frame(b"\x00\x03" + b"\xaa" * 4)  # FW_PACKET_FILE = 3
+    assert struct.unpack(">H", framed[:2])[0] == 0x1803
+
+
 def test_deframe_warns_on_sequence_gap(framer, caplog):
     payload = struct.pack(">HI", FW_PACKET_TELEM, 1)
     framer.deframe(telemetry_packet(FW_PACKET_TELEM, payload, sequence=3))
@@ -132,7 +173,7 @@ def test_enable_output_packet():
 
 
 def test_enable_output_destination_too_long():
-    with pytest.raises(ValueError, match="exceeds 15 characters"):
+    with pytest.raises(ValueError, match="not a dotted-quad IPv4"):
         to_lab_enable_output_packet("0123456789abcdef")
 
 
@@ -172,11 +213,27 @@ def test_adapter_repeats_enable_only_while_silent(monkeypatch):
     adapter.read()  # too soon after the last attempt: no resend
     assert len(adapter.send_socket.sent) == 1
     clock[0] += 40.0
-    adapter.read()  # telemetry arrives: no resend
+    assert adapter.read() == b"data"  # telemetry arrives unchanged: no resend
     assert len(adapter.send_socket.sent) == 1
     clock[0] += 40.0
     adapter.read()  # silent again for the interval: resend
     assert len(adapter.send_socket.sent) == 2
+
+
+def test_adapter_open_then_silence_waits_full_interval(monkeypatch):
+    adapter = make_adapter()
+    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "open", lambda self: None)
+    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "read", lambda self, timeout=0.5: b"")
+    clock = [100.0]
+    monkeypatch.setattr("fprime_cfs.lab_link.time.monotonic", lambda: clock[0])
+    adapter.open()
+    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS
+    clock[0] += 29.0
+    adapter.read()  # silent but within the interval of open(): no resend
+    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS
+    clock[0] += 1.0
+    adapter.read()  # interval elapsed: one resend
+    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS + 1
 
 
 def test_adapter_zero_interval_never_repeats(monkeypatch):
