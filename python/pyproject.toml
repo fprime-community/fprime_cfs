@@ -10,9 +10,7 @@ readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 dependencies = [
-    "fprime-gds>=4.3.0,<5",  # 4.3.0 adds the udp communication adapter the cfs-lab plugin extends,
-    # Required by the cFS GroundSystem GUI launched by fprime-cfs
-    "PyQt5>=5.15,<6",
+    "fprime-gds>=4.3.0,<5",  # 4.3.0 adds the udp communication adapter the cfs-lab plugin extends
 ]
 
 [project.scripts]
@@ -28,4 +26,6 @@ fprime_cfs_framing = "fprime_cfs.framing:CfsFramerDeframer"
 where = ["src"]
 
 [project.optional-dependencies]
+# cFS GroundSystem GUI launched by fprime-cfs: pip install 'fprime-cfs[groundsystem]'
+groundsystem = ["PyQt5>=5.15,<6"]
 test = ["pytest>=6"]

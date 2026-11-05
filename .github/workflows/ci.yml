@@ -57,10 +57,10 @@ jobs:
       - name: "Setup fprime_cfs_reference with fprime_cfs overlay"
         uses: nasa/fprime-actions/external-repository-setup@devel
         with:
-          # TODO: revert to fprime-community/fprime_cfs_reference devel once
-          # fprime-community/fprime_cfs_reference#44 (ci_lab/to_lab ground path) merges
-          target_repository: lestarch-autobot/fprime_cfs_reference
-          target_ref: devin/1793510000-gds-via-to-lab
+          # TODO: revert target_ref to devel once fprime-community/fprime_cfs_reference#44
+          # (ci_lab/to_lab ground path, which these plugins serve) merges
+          target_repository: fprime-community/fprime_cfs_reference
+          target_ref: refs/pull/44/head
           fprime_location: ./libs/fprime
           overlay_location: ./libs/fprime_cfs
       - name: "Build"

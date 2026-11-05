@@ -63,15 +63,21 @@ class CfsFramerDeframer(FramerDeframer):
     def frame(self, data):
         """Wrap an F Prime packet in a cFS command packet on the APID of its descriptor
 
-        A packet whose descriptor is not a dictionary APID is dropped (an empty frame is
-        returned) rather than raised, so that one bad client packet cannot stop the uplink.
+        A packet whose descriptor is not a dictionary APID is dropped rather than raised, so
+        that one bad client packet cannot stop the uplink: an empty frame is returned, which
+        CfsLabAdapter.write refuses to send (fprime-gds then reports a failed send).
         """
         try:
             self.apid_obj.deserialize(data, offset=0)
         except TypeException as exc:
             LOGGER.warning("Dropping %d-byte packet with no cFS APID: %s", len(data), exc)
             return b""
-        apid = self.apid_obj.numeric_value & STREAM_ID_APID_MASK
+        apid = self.apid_obj.numeric_value
+        if apid & ~STREAM_ID_APID_MASK:
+            LOGGER.warning(
+                "Dropping %d-byte packet: descriptor 0x%04X is not a cFS APID", len(data), apid
+            )
+            return b""
         sequence_count = self.uplink_sequence_counts.get(apid, 0)
         self.uplink_sequence_counts[apid] = (
             sequence_count + 1
@@ -82,44 +88,49 @@ class CfsFramerDeframer(FramerDeframer):
         """Strip the cFS headers from the next complete telemetry space packet in data
 
         Returns the F Prime packet, the bytes following it, and any discarded bytes.
-        Data shorter than the packet it starts is kept as leftover until more arrives;
-        data that does not start with a valid telemetry primary header is discarded.
+        Data shorter than the packet it starts is kept as leftover until more arrives.
+        Bytes that are not a valid cFS telemetry packet (bad header, command packet, no
+        secondary header, truncated) are discarded and the scan continues within the
+        same call, so a good packet behind them is delivered without waiting for more
+        data, as fprime-gds's deframe_all expects.
         """
-        if data is None or len(data) < PRIMARY_HEADER_SIZE:
-            return None, data if data else b"", b""
-        stream_id, sequence, packet_length = parse_primary_header(data)
-        if stream_id & STREAM_ID_VERSION_MASK or packet_length > MAX_PACKET_SIZE:
-            skip = self.resync_offset(data)
-            LOGGER.warning("Discarding %d bytes: not a valid space packet header", skip)
-            return None, data[skip:], bytes(data[:skip])
-        if len(data) < packet_length:
-            return None, data, b""
-        packet, leftover = bytes(data[:packet_length]), data[packet_length:]
-        if stream_id & STREAM_ID_TYPE_COMMAND:
-            LOGGER.warning(
-                "Discarding command packet on stream id 0x%04X", stream_id
-            )
-            return None, leftover, packet
-        self.check_sequence_count(stream_id & STREAM_ID_APID_MASK, sequence)
-        payload_offset = PRIMARY_HEADER_SIZE
-        if stream_id & STREAM_ID_SEC_HDR:
-            payload_offset += TELEMETRY_SECONDARY_HEADER_SIZE
-        if len(packet) < payload_offset:
-            LOGGER.warning(
-                "Discarding truncated packet on stream id 0x%04X", stream_id
-            )
-            return None, leftover, packet
-        return packet[payload_offset:], leftover, b""
+        discarded = b""
+        while data is not None and len(data) >= PRIMARY_HEADER_SIZE:
+            stream_id, sequence, packet_length = parse_primary_header(data)
+            if stream_id & STREAM_ID_VERSION_MASK or packet_length > MAX_PACKET_SIZE:
+                skip = self.resync_offset(data)
+                LOGGER.warning("Discarding %d bytes: not a valid space packet header", skip)
+                discarded += bytes(data[:skip])
+                data = data[skip:]
+                continue
+            if len(data) < packet_length:
+                break
+            packet, data = bytes(data[:packet_length]), data[packet_length:]
+            if stream_id & STREAM_ID_TYPE_COMMAND:
+                LOGGER.warning("Discarding command packet on stream id 0x%04X", stream_id)
+            elif not stream_id & STREAM_ID_SEC_HDR:
+                LOGGER.warning(
+                    "Discarding packet without cFS telemetry header on stream id 0x%04X",
+                    stream_id,
+                )
+            elif packet_length < PRIMARY_HEADER_SIZE + TELEMETRY_SECONDARY_HEADER_SIZE:
+                LOGGER.warning("Discarding truncated packet on stream id 0x%04X", stream_id)
+            else:
+                self.check_sequence_count(stream_id & STREAM_ID_APID_MASK, sequence)
+                payload = packet[PRIMARY_HEADER_SIZE + TELEMETRY_SECONDARY_HEADER_SIZE :]
+                return payload, data, discarded
+            discarded += packet
+        return None, data if data else b"", discarded
 
     @staticmethod
     def resync_offset(data) -> int:
         """Offset of the next plausible cFS telemetry header after a bad one, else len(data)
 
-        cFS always emits unsegmented packets with a secondary header, so both flags are
-        required as well as a bounded length.
+        Plausible means what deframe() accepts: version 0, unsegmented (cFS never segments),
+        secondary header present (cFE telemetry always carries one) and a bounded length.
         """
         for offset in range(1, len(data) - PRIMARY_HEADER_SIZE + 1):
-            stream_id, sequence, packet_length = parse_primary_header(data[offset:])
+            stream_id, sequence, packet_length = parse_primary_header(data, offset)
             if (
                 not stream_id & STREAM_ID_VERSION_MASK
                 and stream_id & STREAM_ID_SEC_HDR

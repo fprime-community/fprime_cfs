@@ -70,11 +70,11 @@ def test_deframe_strips_telemetry_headers(framer):
     assert discarded == b""
 
 
-def test_deframe_without_secondary_header(framer):
-    payload = struct.pack(">HI", FW_PACKET_TELEM, 42)
-    packet, leftover, _ = framer.deframe(telemetry_packet(FW_PACKET_TELEM, payload, sec_hdr=False))
-    assert packet == payload
-    assert leftover == b""
+def test_deframe_discards_packet_without_secondary_header(framer, caplog):
+    raw = telemetry_packet(FW_PACKET_TELEM, struct.pack(">HI", FW_PACKET_TELEM, 42), sec_hdr=False)
+    packet, leftover, discarded = framer.deframe(raw)
+    assert packet is None and leftover == b"" and discarded == raw
+    assert "without cFS telemetry header" in caplog.text
 
 
 def test_deframe_all_splits_concatenated_datagrams(framer):
@@ -118,15 +118,33 @@ def test_deframe_discards_oversized_length_and_resyncs(framer):
     good = telemetry_packet(0x0802, b"\x55" * 4, 1)
     bogus = struct.pack(">HHH", 0x0802, 0xC000, 0xFFFF) + b"\x00" * 10
     packet, leftover, discarded = framer.deframe(bogus + good)
-    assert packet is None
+    assert packet == b"\x55" * 4  # delivered in the same call, not held for the next read
     assert discarded == bogus
-    assert leftover == good
+    assert leftover == b""
+
+
+def test_adapter_write_rejects_empty_frame():
+    adapter = make_adapter()
+    assert adapter.write(b"") is False
+    assert adapter.send_socket.sent == []
+    assert adapter.write(b"\x01") is True
 
 
 def test_frame_drops_packet_without_dictionary_apid(framer, caplog):
     assert framer.frame(b"\xff\xff\x01") == b""
     assert framer.frame(b"\x00") == b""
     assert "no cFS APID" in caplog.text
+    assert framer.frame(b"\x08\x00\x01") == b""  # ComCfg.Apid.INVALID_UNINITIALIZED
+    assert len(caplog.records) == 3
+
+
+def test_framer_rejects_dictionary_without_function_code(monkeypatch):
+    def missing(self, name):
+        raise KeyError(name)
+
+    monkeypatch.setattr(ConfigManager, "get_constant", missing)
+    with pytest.raises(ValueError, match=FUNCTION_CODE_CONSTANT):
+        CfsFramerDeframer()
 
 
 def test_enable_output_destination_must_be_ipv4():
@@ -144,7 +162,7 @@ def test_deframe_discards_short_secondary_header(framer, caplog):
 def test_sequence_counts_wrap_at_14_bits(framer, caplog):
     framer.uplink_sequence_counts[0] = 0x3FFF
     assert struct.unpack(">H", framer.frame(b"\x00\x00\x01")[2:4])[0] == 0xFFFF
-    assert framer.uplink_sequence_counts[0] == 0
+    assert framer.frame(b"\x00\x00\x01")[2:4] == b"\xc0\x00"  # wrapped to 0
     framer.deframe(telemetry_packet(0x0802, b"\x01", 0x3FFF))
     framer.deframe(telemetry_packet(0x0802, b"\x01", 0))
     assert "sequence" not in caplog.text.lower()
@@ -191,67 +209,96 @@ def make_adapter(enable=True, interval=30.0):
     return adapter
 
 
-def test_adapter_enables_output_on_open(monkeypatch):
-    adapter = make_adapter()
+@pytest.fixture
+def clock(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr("fprime_cfs.lab_link.time.monotonic", lambda: now[0])
+    return now
+
+
+def stubbed_adapter(monkeypatch, reads=None, **kwargs):
+    """Adapter whose UDP base class neither opens sockets nor blocks in read()"""
+    adapter = make_adapter(**kwargs)
     monkeypatch.setattr(CfsLabAdapter.__mro__[1], "open", lambda self: None)
+    monkeypatch.setattr(
+        CfsLabAdapter.__mro__[1],
+        "read",
+        lambda self, timeout=0.5: reads.pop(0) if reads else b"",
+    )
+    return adapter
+
+
+def sent(adapter):
+    return len(adapter.send_socket.sent)
+
+
+def test_adapter_enables_output_on_open(monkeypatch):
+    adapter = stubbed_adapter(monkeypatch)
     adapter.open()
-    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS
     packet, target = adapter.send_socket.sent[0]
     assert target == ("127.0.0.1", 1234)
     assert packet == to_lab_enable_output_packet("127.0.0.1", 0x1880)
 
 
-def test_adapter_repeats_enable_only_while_silent(monkeypatch):
-    adapter = make_adapter()
-    reads = [b"", b"", b"data", b""]
-    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "read", lambda self, timeout=0.5: reads.pop(0))
-    clock = [100.0]
-    monkeypatch.setattr("fprime_cfs.lab_link.time.monotonic", lambda: clock[0])
-    adapter.read()  # never enabled, silent: one datagram
-    assert len(adapter.send_socket.sent) == 1
-    clock[0] += 1.0
-    adapter.read()  # too soon after the last attempt: no resend
-    assert len(adapter.send_socket.sent) == 1
-    clock[0] += 40.0
-    assert adapter.read() == b"data"  # telemetry arrives unchanged: no resend
-    assert len(adapter.send_socket.sent) == 1
-    clock[0] += 40.0
-    adapter.read()  # silent again for the interval: resend
-    assert len(adapter.send_socket.sent) == 2
-
-
-def test_adapter_open_then_silence_waits_full_interval(monkeypatch):
-    adapter = make_adapter()
-    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "open", lambda self: None)
-    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "read", lambda self, timeout=0.5: b"")
-    clock = [100.0]
-    monkeypatch.setattr("fprime_cfs.lab_link.time.monotonic", lambda: clock[0])
+def test_adapter_retries_every_second_until_first_telemetry(monkeypatch, clock):
+    adapter = stubbed_adapter(monkeypatch, reads=[b"", b"", b"", b"data", b"", b""])
     adapter.open()
-    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS
-    clock[0] += 29.0
-    adapter.read()  # silent but within the interval of open(): no resend
-    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS
+    clock[0] += 0.5
+    adapter.read()  # too soon after open(): no resend
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS
+    clock[0] += 0.5
+    adapter.read()  # one second of silence after open(): resend
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 1
     clock[0] += 1.0
-    adapter.read()  # interval elapsed: one resend
-    assert len(adapter.send_socket.sent) == ENABLE_OUTPUT_ATTEMPTS + 1
+    adapter.read()  # still nothing: resend again
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 2
+    clock[0] += 1.0
+    assert adapter.read() == b"data"  # first telemetry: back off to the interval
+    clock[0] += 29.0
+    adapter.read()
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 2
+    clock[0] += 1.0
+    adapter.read()  # a full interval of silence: resend
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS + 3
 
 
-def test_adapter_zero_interval_never_repeats(monkeypatch):
-    adapter = make_adapter(interval=0)
-    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "read", lambda self, timeout=0.5: b"")
-    clock = [100.0]
-    monkeypatch.setattr("fprime_cfs.lab_link.time.monotonic", lambda: clock[0])
+def test_adapter_repeats_enable_only_while_silent(monkeypatch, clock):
+    adapter = stubbed_adapter(monkeypatch, reads=[b"data", b"", b"data", b""])
+    assert adapter.read() == b"data"  # telemetry before any enable: nothing sent
+    assert sent(adapter) == 0
+    clock[0] += 40.0
+    adapter.read()  # silent for the interval: one datagram
+    assert sent(adapter) == 1
+    clock[0] += 1.0
+    assert adapter.read() == b"data"  # telemetry arrives unchanged: no resend
+    clock[0] += 1.0
+    adapter.read()  # recent telemetry: no resend
+    assert sent(adapter) == 1
+
+
+def test_adapter_zero_interval_never_repeats(monkeypatch, clock):
+    adapter = stubbed_adapter(monkeypatch, interval=0)
+    adapter.open()
     adapter.read()
     clock[0] += 1000.0
     adapter.read()
-    assert adapter.send_socket.sent == []
+    assert sent(adapter) == ENABLE_OUTPUT_ATTEMPTS
 
 
-def test_adapter_disabled_enable_sends_nothing(monkeypatch):
-    adapter = make_adapter(enable=False)
-    monkeypatch.setattr(CfsLabAdapter.__mro__[1], "open", lambda self: None)
+def test_adapter_disabled_enable_sends_nothing(monkeypatch, clock):
+    adapter = stubbed_adapter(monkeypatch, enable=False)
     adapter.open()
+    clock[0] += 1000.0
+    adapter.read()
+    assert sent(adapter) == 0
+
+
+def test_adapter_write_rejects_empty_frame():
+    adapter = make_adapter()
+    assert adapter.write(b"") is False
     assert adapter.send_socket.sent == []
+    assert adapter.write(b"\x01") is True
 
 
 def test_adapter_check_arguments_rejects_bad_destination():

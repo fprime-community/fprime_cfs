@@ -9,6 +9,7 @@ sends the TO_LAB enable-output command so telemetry flows without manual interve
 """
 
 import atexit
+import importlib.util
 import os
 import shutil
 import signal
@@ -146,6 +147,10 @@ def launch_ground_system(ground_system_dir: Path):
     entire process group, which would otherwise take the runner (and the atexit cleanup
     of the temporary configuration directory) down with it.
     """
+    if importlib.util.find_spec("PyQt5") is None:
+        raise RuntimeError(
+            "the cFS GroundSystem GUI needs PyQt5: pip install 'fprime-cfs[groundsystem]'"
+        )
     print("[INFO] Launching the cFS GroundSystem")
     process = subprocess.Popen(
         [sys.executable, str(ground_system_dir / "GroundSystem.py")],

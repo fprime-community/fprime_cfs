@@ -22,7 +22,8 @@ SEQUENCE_FLAGS_UNSEGMENTED = 0xC000
 SEQUENCE_COUNT_MASK = 0x3FFF
 SEQUENCE_COUNT_MODULUS = SEQUENCE_COUNT_MASK + 1
 
-# CFE_MISSION_SB_MAX_SB_MSG_SIZE: no legitimate space packet announces more than this
+# Sanity bound on the announced packet length: the cFS default CFE_MISSION_SB_MAX_SB_MSG_SIZE.
+# A mission raising that limit above 32 KiB must raise this bound too.
 MAX_PACKET_SIZE = 32768
 
 PRIMARY_HEADER_FORMAT = ">HHH"
@@ -82,7 +83,8 @@ def to_lab_enable_output_packet(
     except ValueError as exc:
         raise ValueError(
             f"Telemetry destination '{destination}' is not a dotted-quad IPv4 address; "
-            "TO_LAB stores the field verbatim and silently sends nowhere otherwise"
+            "TO_LAB accepts the string unchecked, reports output enabled, and sends to an "
+            "unresolved address"
         ) from exc
     payload = destination.encode("ascii").ljust(TO_LAB_DEST_IP_SIZE, b"\x00")
     return build_command_packet(
@@ -90,11 +92,11 @@ def to_lab_enable_output_packet(
     )
 
 
-def parse_primary_header(data: bytes) -> Tuple[int, int, int]:
-    """Unpack the CCSDS primary header at the start of data
+def parse_primary_header(data: bytes, offset: int = 0) -> Tuple[int, int, int]:
+    """Unpack the CCSDS primary header at offset within data
 
     Returns the stream identifier, the sequence control word, and the total packet
     length in bytes (primary header included).
     """
-    stream_id, sequence, length = struct.unpack_from(PRIMARY_HEADER_FORMAT, data)
+    stream_id, sequence, length = struct.unpack_from(PRIMARY_HEADER_FORMAT, data, offset)
     return stream_id, sequence, PRIMARY_HEADER_SIZE + length + 1

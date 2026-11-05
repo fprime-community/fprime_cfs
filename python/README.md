@@ -23,10 +23,12 @@ a cFS system through the standard lab applications:
 
 - `cfs-lab` communication plugin: sends commands as UDP datagrams to CI_LAB (default port
   `1234`) and receives telemetry from TO_LAB (default port `2234`). It sends the TO_LAB
-  enable-output command when the link opens and repeats it after every
-  `--to-lab-enable-interval` seconds (default 30, 0 never) without telemetry, so cFS may be
-  started or restarted after the GDS. Options: `--cfs-address`, `--ci-lab-port`,
-  `--to-lab-port`, `--telemetry-destination` (the GDS host as seen from cFS),
+  enable-output command when the link opens and repeats it while no telemetry arrives: every
+  second until the first telemetry packet, then after every `--to-lab-enable-interval`
+  seconds (default 30, 0 never), so cFS may be started or restarted after the GDS (expect
+  up to one interval of silence after a restart). Options: `--cfs-address`, `--ci-lab-port`,
+  `--to-lab-port`, `--telemetry-destination` (IPv4 dotted quad of the GDS host as seen from
+  cFS; TO_LAB takes no hostnames),
   `--to-lab-message-id`, `--no-enable-telemetry`, `--to-lab-enable-interval`. TO_LAB forwards
   to one destination at a time, so a running `fprime-gds` re-targets it away from any other
   ground system (e.g. the cFS GroundSystem on another host) after each quiet interval; use
@@ -54,14 +56,13 @@ downlink messages (telemetry `0x0801`, events `0x0802`, files `0x0803`, data pro
 
 Runs the full cFS GroundSystem GDS: generates the GroundSystem configuration from the
 F Prime dictionary, optionally launches the cFS application, and launches the
-GroundSystem GUI. The F Prime GDS connects through the same CI_LAB/TO_LAB path with the
-plugins above; the GroundSystem talks directly to the cFS software bus over UDP
+GroundSystem GUI. The GroundSystem talks directly to the cFS software bus over UDP
 through the standard lab applications: commands go to CI_LAB (default port 1234) and
 telemetry arrives from TO_LAB (default port 2234). On startup the runner sends the
 TO_LAB enable-output command (suppress with `--no-enable-telemetry`; the destination IP
 may be changed with `--telemetry-destination`).
 
-The F Prime GDS connects through the same CI_LAB/TO_LAB path with the plugins below; it
+The F Prime GDS connects through the same CI_LAB/TO_LAB path with the plugins above; it
 needs no cFS application of its own.
 
 ```bash

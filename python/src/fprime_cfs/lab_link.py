@@ -4,9 +4,11 @@ Selected with `fprime-gds --communication-selection cfs-lab`. Commands are sent 
 datagrams to CI_LAB (default port 1234) and telemetry is received from TO_LAB (default
 port 2234), the same path the cFS GroundSystem uses. TO_LAB only transmits after it is
 told where to: the adapter sends the TO_LAB enable-output command when the link opens
-and repeats it, at a configurable interval, while no telemetry arrives, so a cFS instance
-started or restarted after the GDS begins transmitting without manual intervention. The
-repeat costs one TO_LAB "output enabled" event per interval on a quiet system.
+and repeats it while no telemetry arrives: every second until the first telemetry packet
+(CI_LAB may not be listening yet when the GDS starts), then at a configurable interval, so
+a cFS instance started or restarted after the GDS begins transmitting without manual
+intervention. The repeat costs one TO_LAB "output enabled" event per interval on a quiet
+system.
 
 The lab applications carry data over plain UDP with no authentication or integrity
 protection; this link is for isolated lab and bench networks only.
@@ -24,6 +26,9 @@ LOGGER = logging.getLogger("cfs_lab_link")
 
 # Number of enable-output datagrams sent when the link opens (UDP is unacknowledged, the command is idempotent)
 ENABLE_OUTPUT_ATTEMPTS = 3
+# Until the first telemetry arrives the enable-output command is repeated this often (cFS
+# started alongside the GDS has no CI_LAB listening yet when open() sends its attempts)
+STARTUP_RETRY_SECONDS = 1.0
 # Default telemetry silence after which the enable-output command is repeated (once); 0 disables repeats
 DEFAULT_ENABLE_OUTPUT_INTERVAL_SECONDS = 30.0
 
@@ -72,18 +77,26 @@ class CfsLabAdapter(UdpAdapter):
         return data
 
     def is_due(self, now: float) -> bool:
-        """Whether telemetry silence warrants repeating the enable-output command"""
+        """Whether telemetry silence warrants repeating the enable-output command
+
+        Before the first telemetry packet the retry period is STARTUP_RETRY_SECONDS (or the
+        interval if shorter); afterwards it is the configured interval.
+        """
         if self.enable_packet is None or self.enable_interval <= 0:
             return False
-        silent = (
-            self.last_received is None
-            or now - self.last_received >= self.enable_interval
-        )
-        rested = (
-            self.last_enabled is None
-            or now - self.last_enabled >= self.enable_interval
-        )
-        return silent and rested
+        if self.last_received is None:
+            period = min(STARTUP_RETRY_SECONDS, self.enable_interval)
+        else:
+            period = self.enable_interval
+            if now - self.last_received < period:
+                return False
+        return self.last_enabled is None or now - self.last_enabled >= period
+
+    def write(self, frame):
+        """Send a frame to CI_LAB; an empty frame (a packet the framer dropped) is a failure"""
+        if not frame:
+            return False
+        return super().write(frame)
 
     def enable_output(self, attempts: int):
         """Send the TO_LAB enable-output command through CI_LAB"""
