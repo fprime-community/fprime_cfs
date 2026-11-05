@@ -23,15 +23,16 @@ register_fprime_module(
         "${CMAKE_CURRENT_LIST_DIR}/CfsBridge.fpp"
     SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/CfsBridge.cpp"
+    DEPENDS
+        FPrimeCfs_Types
 )
 
 if (TARGET core_api)
     # Building within a cFS mission build: link against the real cFE core API
-    target_link_libraries(${FPRIME_CURRENT_MODULE} core_api FPrimeCfs_Types)
+    target_link_libraries(${FPRIME_CURRENT_MODULE} PUBLIC core_api)
 else()
     # Standalone (unit test) build: use the cFE stub layer in test/ut/stubs
     target_include_directories(${FPRIME_CURRENT_MODULE} PUBLIC "${CMAKE_CURRENT_LIST_DIR}/test/ut/stubs")
-    target_link_libraries(${FPRIME_CURRENT_MODULE} FPrimeCfs_Types)
 endif()
 
 ### Unit Tests ###
