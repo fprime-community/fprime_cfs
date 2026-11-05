@@ -187,7 +187,7 @@ void CfsRouterTester ::testRouteUnknown()
     ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).context.get_apid(), UNKNOWN_APID);
     ASSERT_EVENTS_SIZE(1);
     ASSERT_EVENTS_NoRoute_SIZE(1);
-    ASSERT_EVENTS_NoRoute(0, static_cast<U16>(UNKNOWN_APID), 0);
+    ASSERT_EVENTS_NoRoute(0, ComCfg::SppPacketType::SPP_TELEMETRY, static_cast<U16>(UNKNOWN_APID), 0);
 }
 
 void CfsRouterTester ::testBadChecksum()
@@ -216,7 +216,7 @@ void CfsRouterTester ::testNoRouteFunctionCode()
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(1);
     ASSERT_EVENTS_SIZE(1);
-    ASSERT_EVENTS_NoRoute(0, static_cast<U16>(CFS_CMD_APID), 0x2B);
+    ASSERT_EVENTS_NoRoute(0, ComCfg::SppPacketType::SPP_COMMAND, static_cast<U16>(CFS_CMD_APID), 0x2B);
     Fw::Buffer buffer = this->fromPortHistory_unknownDataOut->at(0).data;
     this->invoke_to_bufferReturnIn(0, buffer);
     ASSERT_from_dataReturnOut_SIZE(1);
@@ -231,6 +231,7 @@ void CfsRouterTester ::testNoRouteFunctionCode()
     ASSERT_from_cfsCommandOut_SIZE(0);
     ASSERT_from_unknownDataOut_SIZE(2);
     ASSERT_EVENTS_NoRoute_SIZE(2);
+    ASSERT_EVENTS_NoRoute(1, ComCfg::SppPacketType::SPP_TELEMETRY, static_cast<U16>(CFS_CMD_APID), 0);
 }
 
 void CfsRouterTester ::testDataReturnIn()

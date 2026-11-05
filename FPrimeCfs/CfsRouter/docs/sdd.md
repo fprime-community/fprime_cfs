@@ -80,7 +80,7 @@ the check are dropped with `BadChecksum` before any route lookup.
 | --- | --- | --- |
 | `CommandMissingSecondaryHeader` | warning high | A command packet has no (or a truncated) cFS command secondary header; forwarded on `unknownDataOut` |
 | `BadChecksum` | warning high | A command packet failed cFS checksum verification; dropped (buffer returned) before any routing |
-| `NoRoute` | warning low | No routing table entry matched (APID, or APID and function code for commands); forwarded on `unknownDataOut` |
+| `NoRoute` | warning low | No routing table entry matched the packet type and APID (and function code for commands); forwarded on `unknownDataOut`. Arguments: packet type, APID, function code |
 | `MissingSecondaryHeader` | warning high | A telemetry packet routed as `CFS_TELEMETRY` has no (or a truncated) cFS telemetry secondary header; forwarded on `unknownDataOut` |
 | `SerializationError` | warning high | Copying an F Prime command into a com buffer failed |
 

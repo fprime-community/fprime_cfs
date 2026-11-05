@@ -83,11 +83,12 @@ module FPrimeCfs {
 
         @ A packet matched no routing table entry and was forwarded on unknownDataOut
         event NoRoute(
-                apid: U16           @< The APID of the packet
-                functionCode: U8    @< The function code of the packet (zero for non-command packets)
+                pktType: ComCfg.SppPacketType  @< The space packet type (command or telemetry)
+                apid: U16                      @< The APID of the packet
+                functionCode: U8               @< The function code of the packet (zero for non-command packets)
             ) \
             severity warning low \
-            format "Packet with APID {} function code {} has no route; forwarded on unknownDataOut"
+            format "{} packet with APID {} function code {} has no route; forwarded on unknownDataOut"
 
         @ An error occurred while copying a command packet into a com buffer
         event SerializationError(

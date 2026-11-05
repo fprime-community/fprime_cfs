@@ -50,7 +50,7 @@ void CfsRouter ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const Com
     const CfsRouteEntry *route = this->findRoute(apid, isCommand, functionCode);
     if (route == nullptr)
     {
-        this->log_WARNING_LO_NoRoute(static_cast<U16>(apid), functionCode);
+        this->log_WARNING_LO_NoRoute(context.get_pktType(), static_cast<U16>(apid), functionCode);
         this->routeUnknown(data, context);
         return;
     }
