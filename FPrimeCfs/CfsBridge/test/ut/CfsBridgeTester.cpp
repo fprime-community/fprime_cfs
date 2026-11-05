@@ -91,14 +91,15 @@ void CfsBridgeTester ::receiveMessage(ComCfg::Apid::T apid, const U8* payload, F
 void CfsBridgeTester ::assertTransmitted(U32 index,
                                          CFE_SB_MsgId_Atom_t expectedMsgId,
                                          const U8* expectedPayload,
-                                         FwSizeType expectedPayloadSize) {
+                                         FwSizeType expectedPayloadSize,
+                                         bool expectOrigination) {
     ASSERT_GT(CfeStub::state().transmitCount, index);
     const CfeStub::TransmitCall& call = CfeStub::state().transmitCalls[index];
     ASSERT_EQ(call.msgIdValue, expectedMsgId);
     ASSERT_EQ(call.totalSize, HEADER_SIZE + expectedPayloadSize);
     ASSERT_EQ(call.payloadSize, expectedPayloadSize);
     ASSERT_EQ(std::memcmp(call.payload, expectedPayload, expectedPayloadSize), 0);
-    ASSERT_FALSE(call.incrementSequenceCount);
+    ASSERT_EQ(call.incrementSequenceCount, expectOrigination);
 }
 
 // ----------------------------------------------------------------------
@@ -330,13 +331,14 @@ void CfsBridgeTester ::testTransmitWrapPassthrough() {
     ASSERT_EQ(CfeStub::state().transmitCount, 1u);
     this->assertTransmitted(0, TLM_MID_FOR_APID_1, payload, sizeof(payload));
 
-    // Command packets that already carry a secondary header are transmitted unmodified
+    // Command packets that already carry a cFS secondary header are transmitted unmodified but as
+    // originated messages: cFE stamps the sequence count and the command checksum
     const U16 cmdWithSecHdr = CMD_MID_FOR_APID_0 | 0x0800;
     buffer.setData(storage);
     buffer.setSize(this->makePacket(storage, cmdWithSecHdr, payload, sizeof(payload)));
     this->sendDataIn(buffer, context);
     ASSERT_EQ(CfeStub::state().transmitCount, 2u);
-    this->assertTransmitted(1, cmdWithSecHdr, payload, sizeof(payload));
+    this->assertTransmitted(1, cmdWithSecHdr, payload, sizeof(payload), true);
 }
 
 void CfsBridgeTester ::testTransmitWrapTooLarge() {

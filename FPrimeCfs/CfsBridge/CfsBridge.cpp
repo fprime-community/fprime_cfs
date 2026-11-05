@@ -208,7 +208,10 @@ void CfsBridge ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const Com
             // Cast justified: software bus messages are complete CCSDS space packets and the cFS API takes them
             // as CFE_MSG_Message_t
             CFE_MSG_Message_t* message_pointer = reinterpret_cast<CFE_MSG_Message_t*>(&buffer_data[offset]);
-            status = CFE_SB_TransmitMsg(message_pointer, false);
+            // Command packets with a cFS secondary header are originated here: cFE stamps the
+            // sequence count and command checksum (CFE_MSG_OriginationAction), as for any cFS app.
+            // Telemetry keeps IsOrigination=false so the F Prime packet time survives.
+            status = CFE_SB_TransmitMsg(message_pointer, isCommand and hasSecHdr);
         }
         if (status != CFE_SUCCESS) {
             Fw::Logger::log("[ERROR] Failed to transmit message to software bus: 0x%08x\n", status);

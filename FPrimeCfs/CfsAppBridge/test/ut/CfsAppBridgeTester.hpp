@@ -9,10 +9,12 @@
 #include "CfsAppBridgeGTestBase.hpp"
 #include "FPrimeCfs/CfsAppBridge/CfsAppBridge.hpp"
 
-namespace FPrimeCfs {
+namespace FPrimeCfs
+{
 
-class CfsAppBridgeTester final : public CfsAppBridgeGTestBase {
-  public:
+class CfsAppBridgeTester final : public CfsAppBridgeGTestBase
+{
+public:
     // Maximum size of histories storing events, telemetry, and port outputs
     static const U32 MAX_HISTORY_SIZE = 10;
 
@@ -35,6 +37,7 @@ class CfsAppBridgeTester final : public CfsAppBridgeGTestBase {
 
     //! A com buffer's descriptor selects the APID
     void testComDescriptorMapping();
+    void testCfsData();
 
     //! An unknown descriptor maps to the unknown APID with a warning
     void testUnknownDescriptor();
@@ -45,7 +48,7 @@ class CfsAppBridgeTester final : public CfsAppBridgeGTestBase {
     //! dataReturnIn deallocates the outgoing buffer
     void testDataReturn();
 
-  private:
+private:
     // ----------------------------------------------------------------------
     // Output port handler overrides
     // ----------------------------------------------------------------------
@@ -53,8 +56,8 @@ class CfsAppBridgeTester final : public CfsAppBridgeGTestBase {
     //! Handler for bufferAllocate
     Fw::Buffer from_bufferAllocate_handler(FwIndexType portNum, FwSizeType size) override;
 
-    void connectPorts();    //!< Connects all ports for the component under test (auto-generated)
-    void initComponents();  //!< Initializes the component under test (auto-generated)
+    void connectPorts();   //!< Connects all ports for the component under test (auto-generated)
+    void initComponents(); //!< Initializes the component under test (auto-generated)
 
     // ----------------------------------------------------------------------
     // Member variables
@@ -70,6 +73,6 @@ class CfsAppBridgeTester final : public CfsAppBridgeGTestBase {
     bool m_useUndersizedAlloc = false;
 };
 
-}  // namespace FPrimeCfs
+} // namespace FPrimeCfs
 
 #endif

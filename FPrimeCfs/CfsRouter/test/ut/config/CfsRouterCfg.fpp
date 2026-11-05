@@ -16,14 +16,14 @@ module FPrimeCfs {
     @ Maximum number of buffers simultaneously outstanding on the pass-through routes
     constant CFS_ROUTER_MAX_PENDING_BUFFERS = 10
 
-    @ Number of entries in the APID routing table
+    @ Number of entries in the routing table
     constant CFS_ROUTER_ROUTE_TABLE_SIZE = 4
 
     @ Test routing table with one route of each category
     constant CFS_ROUTER_ROUTE_TABLE = [
-        { apid = ComCfg.Apid.FW_PACKET_COMMAND, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
-        { apid = ComCfg.Apid.FW_PACKET_HAND,    routeType = CfsRouteType.CFS_COMMAND,    portIndex = 0 },
-        { apid = ComCfg.Apid.FW_PACKET_TELEM,   routeType = CfsRouteType.CFS_TELEMETRY,  portIndex = 0 },
-        { apid = ComCfg.Apid.FW_PACKET_FILE,    routeType = CfsRouteType.FILE,           portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_COMMAND, functionCode = ComCfg.FprimeCommandFunctionCode, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_HAND,    functionCode = 0x2A, routeType = CfsRouteType.CFS_COMMAND,    portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_TELEM,   functionCode = 0, routeType = CfsRouteType.CFS_TELEMETRY,  portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_FILE,    functionCode = 0, routeType = CfsRouteType.FILE,           portIndex = 0 },
     ]
 }

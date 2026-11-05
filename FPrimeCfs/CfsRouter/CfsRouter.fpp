@@ -6,8 +6,9 @@ module FPrimeCfs {
     @ ports carrying the secondary-header fields (function code, or time) and the payload;
     @ anything without a configured route goes to the unknown output.
     @
-    @ Routing is selected by the static APID -> (route type, port index) table configured
-    @ in CfsRouterCfg.fpp (CFS_ROUTER_ROUTE_TABLE).
+    @ Routing is selected by the static (APID, function code) -> (route type, port index) table
+    @ for commands, after checksum verification, and by APID for telemetry and file packets,
+    @ configured in CfsRouterCfg.fpp (CFS_ROUTER_ROUTE_TABLE).
     passive component CfsRouter {
 
         @ The APID routing table type, statically configured via CfsRouterCfg.fpp
@@ -62,7 +63,7 @@ module FPrimeCfs {
         sync input port bufferReturnIn: Fw.BufferSend
 
         @ Port for receiving back ownership of buffers sent on unknownDataOut from
-        @ receivers that return data with a context (e.g. a FPrimeCfs.CfsCmdRouter
+        @ receivers that return data with a context (e.g. a downstream router's
         @ dataReturnOut). The buffer is returned on dataReturnOut with the context it
         @ was originally received with; untracked buffers use the supplied context.
         sync input port dataReturnIn: Svc.ComDataWithContext
@@ -71,6 +72,24 @@ module FPrimeCfs {
         # Events
         # ----------------------------------------------------------------------
 
+        @ A command packet failed cFS checksum verification and was dropped before routing
+        event BadChecksum(
+                apid: U16           @< The APID of the command
+                functionCode: U8    @< The function code of the command
+                checksum: U8        @< The XOR residual over the command (zero when valid)
+            ) \
+            severity warning high \
+            format "Command with APID {} function code {} dropped: bad checksum (residual {})"
+
+        @ A packet matched no routing table entry and was forwarded on unknownDataOut
+        event NoRoute(
+                pktType: ComCfg.SppPacketType  @< The space packet type (command or telemetry)
+                apid: U16                      @< The APID of the packet
+                functionCode: U8               @< The function code of the packet (zero for non-command packets)
+            ) \
+            severity warning low \
+            format "{} packet with APID {} function code {} has no route; forwarded on unknownDataOut"
+
         @ An error occurred while copying a command packet into a com buffer
         event SerializationError(
                 status: U32 @< The status of the operation
@@ -78,7 +97,15 @@ module FPrimeCfs {
             severity warning high \
             format "Serializing com buffer failed with status {}"
 
-        @ A packet routed as a cFS command or telemetry message is missing its secondary header
+        @ A command packet is missing the cFS command secondary header and was forwarded on unknownDataOut
+        event CommandMissingSecondaryHeader(
+                apid: U16       @< The APID of the packet
+                dataSize: U32   @< The size of the packet data in bytes
+            ) \
+            severity warning high \
+            format "Command with APID {} ({} bytes) has no cFS command secondary header; forwarded on unknownDataOut"
+
+        @ A packet routed as a cFS telemetry message is missing its secondary header
         event MissingSecondaryHeader(
                 apid: U16       @< The APID of the packet
                 dataSize: U32   @< The size of the packet data in bytes

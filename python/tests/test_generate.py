@@ -171,16 +171,16 @@ def test_telemetry_generation(tmp_path):
         for line in (tmp_path / "fprime-tlm.txt").read_text().splitlines()
         if not line.startswith("#")
     ]
-    # Datagram layout: 6 header + 6 cFS sec header + 2 descriptor + 2 id + 11 time +
+    # Datagram layout: 6 header + 10 cFS sec header (6 time + 4 spare) + 2 descriptor + 2 id + 11 time +
     # values, minus the 4-byte offset applied by the GUI
-    assert rows[0][:4] == ["Packet Id", "10", "2", ">H"]
-    assert rows[1][:4] == ["Time Seconds", "15", "4", ">I"]
-    assert rows[2][:4] == ["Time Microseconds", "19", "4", ">I"]
-    assert rows[3][:5] == ["comp.counter", "23", "4", ">I", "Dec"]
-    assert rows[4][:5] == ["comp.flag", "27", "1", "B", "Dec"]
+    assert rows[0][:4] == ["Packet Id", "14", "2", ">H"]
+    assert rows[1][:4] == ["Time Seconds", "19", "4", ">I"]
+    assert rows[2][:4] == ["Time Microseconds", "23", "4", ">I"]
+    assert rows[3][:5] == ["comp.counter", "27", "4", ">I", "Dec"]
+    assert rows[4][:5] == ["comp.flag", "31", "1", "B", "Dec"]
     assert rows[5][:9] == [
         "comp.mode",
-        "28",
+        "32",
         "1",
         "B",
         "Enm",
@@ -295,7 +295,7 @@ def test_enum_fallback_display(tmp_path):
         for line in (tmp_path / "fprime-tlm.txt").read_text().splitlines()
         if not line.startswith("#")
     ]
-    assert rows[5][:5] == ["comp.mode", "28", "1", "B", "Dec"]
+    assert rows[5][:5] == ["comp.mode", "32", "1", "B", "Dec"]
 
 
 def test_float_and_bool_parameters(tmp_path):

@@ -9,10 +9,12 @@
 #include "CfsRouterGTestBase.hpp"
 #include "FPrimeCfs/CfsRouter/CfsRouter.hpp"
 
-namespace FPrimeCfs {
+namespace FPrimeCfs
+{
 
-class CfsRouterTester final : public CfsRouterGTestBase {
-  public:
+class CfsRouterTester final : public CfsRouterGTestBase
+{
+public:
     // Maximum size of histories storing events, telemetry, and port outputs
     static const U32 MAX_HISTORY_SIZE = 100;
 
@@ -32,6 +34,8 @@ class CfsRouterTester final : public CfsRouterGTestBase {
 
     //! F Prime commands are copied to the configured command port and the buffer returned
     void testRouteFprimeCommand();
+    void testBadChecksum();
+    void testNoRouteFunctionCode();
 
     //! The cFS command secondary header is excluded from copied F Prime command data
     void testRouteFprimeCommandSecHdr();
@@ -59,6 +63,7 @@ class CfsRouterTester final : public CfsRouterGTestBase {
 
     //! cFS routes without a secondary header go to unknown with a warning event
     void testMissingSecondaryHeader();
+    void testLiteralChecksumVector();
 
     //! cFS routes whose data is too small for the secondary header go to unknown with a warning
     void testShortSecondaryHeader();
@@ -72,21 +77,22 @@ class CfsRouterTester final : public CfsRouterGTestBase {
     //! Randomized routing across all categories returns every buffer
     void testRandomized();
 
-  private:
+private:
     // ----------------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------------
 
     //! Invoke dataIn with the given apid/secondary-header flag over the supplied bytes
-    void sendData(ComCfg::Apid::T apid, bool hasSecHdr, U8* bytes, FwSizeType size);
+    void sendData(ComCfg::Apid::T apid, bool hasSecHdr, U8 *bytes, FwSizeType size);
+    bool m_corruptChecksum = false;
 
-    void connectPorts();    //!< Connects all ports for the component under test (auto-generated)
-    void initComponents();  //!< Initializes the component under test (auto-generated)
+    void connectPorts();   //!< Connects all ports for the component under test (auto-generated)
+    void initComponents(); //!< Initializes the component under test (auto-generated)
 
     //! The component under test
     CfsRouter component;
 };
 
-}  // namespace FPrimeCfs
+} // namespace FPrimeCfs
 
 #endif

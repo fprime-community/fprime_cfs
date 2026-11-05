@@ -3,7 +3,7 @@
 # Constants for configuring the CfsRouter routing table and port counts
 #
 # Projects override this file (register_fprime_config CONFIGURATION_OVERRIDES)
-# to supply their own APID routing table. Any cFS APID to be routed must also
+# to supply their own routing table. Any cFS APID to be routed must also
 # be present in the project's ComCfg.Apid enumeration; the space packet
 # deframer maps unknown APIDs to INVALID_UNINITIALIZED, which takes the
 # unknown route.
@@ -23,14 +23,14 @@ module FPrimeCfs {
     @ routes (cFS command, cFS telemetry, unknown) awaiting return
     constant CFS_ROUTER_MAX_PENDING_BUFFERS = 10
 
-    @ Number of entries in the APID routing table
+    @ Number of entries in the routing table
     constant CFS_ROUTER_ROUTE_TABLE_SIZE = 2
 
-    @ The APID routing table: APID -> (route type, output port index).
+    @ The routing table: (APID, function code for commands) -> (route type, output port index).
     @ This default configuration routes F Prime commands and file packets;
     @ projects override with their own cFS APIDs and routes.
     constant CFS_ROUTER_ROUTE_TABLE = [
-        { apid = ComCfg.Apid.FW_PACKET_COMMAND, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
-        { apid = ComCfg.Apid.FW_PACKET_FILE,    routeType = CfsRouteType.FILE,           portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_COMMAND, functionCode = ComCfg.FprimeCommandFunctionCode, routeType = CfsRouteType.FPRIME_COMMAND, portIndex = 0 },
+        { apid = ComCfg.Apid.FW_PACKET_FILE,    functionCode = 0, routeType = CfsRouteType.FILE,           portIndex = 0 },
     ]
 }

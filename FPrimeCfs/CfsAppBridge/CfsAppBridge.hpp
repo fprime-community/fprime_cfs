@@ -8,16 +8,18 @@
 
 #include "FPrimeCfs/CfsAppBridge/CfsAppBridgeComponentAc.hpp"
 
-namespace FPrimeCfs {
+namespace FPrimeCfs
+{
 
-class CfsAppBridge final : public CfsAppBridgeComponentBase {
-  public:
+class CfsAppBridge final : public CfsAppBridgeComponentBase
+{
+public:
     // ----------------------------------------------------------------------
     // Component construction and destruction
     // ----------------------------------------------------------------------
 
     //! Construct CfsAppBridge object
-    CfsAppBridge(const char* const compName  //!< The component name
+    CfsAppBridge(const char *const compName //!< The component name
     );
 
     //! Destroy CfsAppBridge object
@@ -26,21 +28,20 @@ class CfsAppBridge final : public CfsAppBridgeComponentBase {
     //! Configure the APID used for data received on cfsCommandIn
     void configure(const ComCfg::Apid::T commandApid);
 
-  private:
+private:
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
     //! Handler implementation for cfsCommandIn
-    void cfsCommandIn_handler(FwIndexType portNum, U8 functionCode, Fw::Buffer& data) override;
+    void cfsCommandIn_handler(FwIndexType portNum, U8 functionCode, Fw::Buffer &data) override;
 
     //! Handler implementation for comIn
-    void comIn_handler(FwIndexType portNum, Fw::ComBuffer& data, U32 context) override;
+    void cfsDataIn_handler(FwIndexType portNum, Fw::Buffer &data, const ComCfg::FrameContext &context) override;
+    void comIn_handler(FwIndexType portNum, Fw::ComBuffer &data, U32 context) override;
 
     //! Handler implementation for dataReturnIn
-    void dataReturnIn_handler(FwIndexType portNum,
-                              Fw::Buffer& data,
-                              const ComCfg::FrameContext& context) override;
+    void dataReturnIn_handler(FwIndexType portNum, Fw::Buffer &data, const ComCfg::FrameContext &context) override;
 
     // ----------------------------------------------------------------------
     // Helpers
@@ -49,12 +50,12 @@ class CfsAppBridge final : public CfsAppBridgeComponentBase {
     //! Copy the given bytes into an allocated buffer and send it on dataOut
     //! with the given context. Emits AllocationFailed and drops the data when
     //! the allocation is undersized.
-    void copyAndSend(const U8* const bytes, const FwSizeType size, const ComCfg::FrameContext& context);
+    void copyAndSend(const U8 *const bytes, const FwSizeType size, const ComCfg::FrameContext &context);
 
     //! Map a com buffer's leading packet descriptor to an APID. Returns the
     //! unknown APID (with a warning event) when the descriptor cannot be read
     //! or is not a known packet type.
-    ComCfg::Apid::T mapDescriptorToApid(Fw::ComBuffer& data);
+    ComCfg::Apid::T mapDescriptorToApid(Fw::ComBuffer &data);
 
     // ----------------------------------------------------------------------
     // Member variables
@@ -64,6 +65,6 @@ class CfsAppBridge final : public CfsAppBridgeComponentBase {
     ComCfg::Apid::T m_commandApid = ComCfg::Apid::FW_PACKET_UNKNOWN;
 };
 
-}  // namespace FPrimeCfs
+} // namespace FPrimeCfs
 
 #endif

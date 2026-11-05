@@ -30,9 +30,11 @@ contents from the frame context: PVN 0, packet type 1 (command), secondary heade
 count from the context, sequence flags `0b11` (unsegmented), and the standard length field. The downstream
 `Svc.Ccsds.SpacePacketFramer` writes exactly these values when it uses the context's APID and sequence count.
 
-Note: if the downstream framer obtains its sequence count from an external source (e.g. its `getApidSeqCount`
-port) rather than the context, the context's `sequenceCount` must be kept consistent or the checksum will not
-validate on the cFS side.
+Note: the sequence count in the context is assigned by the downstream `Svc.Ccsds.SpacePacketFramer` after this
+stage runs, so the checksum written here is only a placeholder for the final header. `FPrimeCfs::CfsBridge`
+transmits native cFS command packets with `CFE_SB_TransmitMsg(msg, true)`, and cFE then stamps the sequence count
+and recomputes the checksum over the final header (`CFE_MSG_OriginationAction`). The framer also sets `pktType` to
+`SPP_COMMAND` in the forwarded frame context so the space packet framer builds a command packet.
 
 ## Buffer ownership
 
