@@ -376,6 +376,111 @@ void CfsRouterTester ::testRandomized()
     ASSERT_EQ(returned, 1000u);
 }
 
+void CfsRouterTester ::testMalformedFuzz()
+{
+    static const ComCfg::Apid::T TABLE_APIDS[5] = {FPRIME_CMD_APID, CFS_CMD_APID, CFS_TLM_APID, FILE_APID,
+                                                   UNKNOWN_APID};
+    for (U32 i = 0; i < 5000; i++)
+    {
+        U8 bytes[64];
+        for (FwSizeType j = 0; j < sizeof(bytes); j++)
+        {
+            bytes[j] = static_cast<U8>(STest::Pick::lowerUpper(0, 0xFF));
+        }
+        // Size 0..64: covers no secondary header, short command (< 2) and telemetry (< 10) headers,
+        // and payloads too large for an F Prime com buffer
+        const FwSizeType size = static_cast<FwSizeType>(STest::Pick::lowerUpper(0, sizeof(bytes)));
+        // A table APID three times out of four, otherwise any other member of ComCfg.Apid, including
+        // INVALID_UNINITIALIZED: the frame context cannot carry an APID outside the enum (set_apid
+        // asserts), and the upstream SpacePacketDeframer maps unlisted APIDs to INVALID_UNINITIALIZED
+        ComCfg::Apid::T apid = TABLE_APIDS[STest::Pick::lowerUpper(0, 4)];
+        if (STest::Pick::lowerUpper(0, 3) == 0)
+        {
+            const ComCfg::Apid::T candidate = static_cast<ComCfg::Apid::T>(STest::Pick::lowerUpper(0, 0x7FF));
+            if (ComCfg::Apid::isValid(candidate))
+            {
+                apid = candidate;
+            }
+        }
+        // Packet type chosen independently of the APID: exercises type-mismatched routes
+        const bool           isCommand = (STest::Pick::lowerUpper(0, 1) == 1);
+        ComCfg::FrameContext context;
+        context.set_apid(apid);
+        context.set_pktType(isCommand ? ComCfg::SppPacketType::SPP_COMMAND : ComCfg::SppPacketType::SPP_TELEMETRY);
+        context.set_hasSecHdr(STest::Pick::lowerUpper(0, 1) == 1);
+        context.set_sequenceFlags(static_cast<U8>(STest::Pick::lowerUpper(0, 3)));
+        context.set_sequenceCount(static_cast<U16>(STest::Pick::lowerUpper(0, 0x3FFF)));
+        Fw::Buffer buffer(bytes, size);
+        // Commands with a header: valid checksum two times in three, corrupt otherwise
+        bool checksumValid = false;
+        if (isCommand && context.get_hasSecHdr() && (size >= CFS_ROUTER_CMD_SEC_HDR_SIZE))
+        {
+            bytes[1]          = 0;
+            const U8 residual = CfsRouter::computeChecksumResidual(buffer, context);
+            checksumValid     = (STest::Pick::lowerUpper(0, 2) != 0);
+            bytes[1] = checksumValid ? residual : static_cast<U8>(residual ^ STest::Pick::lowerUpper(1, 0xFF));
+        }
+
+        this->invoke_to_dataIn(0, buffer, context);
+
+        // At most one diagnostic per packet
+        ASSERT_LE(this->eventsSize, 1u) << "iteration " << i;
+        // A command without a verified checksum never reaches a command consumer
+        if (isCommand && (!checksumValid))
+        {
+            ASSERT_from_cfsCommandOut_SIZE(0);
+            ASSERT_from_commandOut_SIZE(0);
+        }
+        // Ownership transfers on at most one output; return it the way the receiver would
+        const U32 handedOut = static_cast<U32>(this->fromPortHistory_cfsCommandOut->size()) +
+                              static_cast<U32>(this->fromPortHistory_cfsTelemetryOut->size()) +
+                              static_cast<U32>(this->fromPortHistory_unknownDataOut->size()) +
+                              static_cast<U32>(this->fromPortHistory_fileOut->size());
+        ASSERT_LE(handedOut, 1u) << "iteration " << i;
+        if (this->fromPortHistory_cfsCommandOut->size() > 0)
+        {
+            ASSERT_from_dataReturnOut_SIZE(0);
+            ASSERT_EQ(this->fromPortHistory_cfsCommandOut->at(0).apid, apid);
+            // Pure payload: a view into the original buffer past the 2-byte secondary header
+            Fw::Buffer payload = this->fromPortHistory_cfsCommandOut->at(0).data;
+            ASSERT_EQ(payload.getData(), bytes + CFS_ROUTER_CMD_SEC_HDR_SIZE);
+            ASSERT_EQ(payload.getSize(), size - CFS_ROUTER_CMD_SEC_HDR_SIZE);
+            this->invoke_to_bufferReturnIn(0, payload);
+        }
+        else if (this->fromPortHistory_cfsTelemetryOut->size() > 0)
+        {
+            ASSERT_from_dataReturnOut_SIZE(0);
+            ASSERT_EQ(this->fromPortHistory_cfsTelemetryOut->at(0).apid, apid);
+            Fw::Buffer payload = this->fromPortHistory_cfsTelemetryOut->at(0).data;
+            ASSERT_EQ(payload.getData(), bytes + CFS_ROUTER_TLM_SEC_HDR_SIZE);
+            ASSERT_EQ(payload.getSize(), size - CFS_ROUTER_TLM_SEC_HDR_SIZE);
+            this->invoke_to_bufferReturnIn(0, payload);
+        }
+        else if (this->fromPortHistory_unknownDataOut->size() > 0)
+        {
+            ASSERT_from_dataReturnOut_SIZE(0);
+            Fw::Buffer           unknown        = this->fromPortHistory_unknownDataOut->at(0).data;
+            ComCfg::FrameContext unknownContext = this->fromPortHistory_unknownDataOut->at(0).context;
+            ASSERT_EQ(unknown.getData(), bytes);
+            ASSERT_EQ(unknownContext.get_apid(), apid);
+            this->invoke_to_dataReturnIn(0, unknown, unknownContext);
+        }
+        else if (this->fromPortHistory_fileOut->size() > 0)
+        {
+            ASSERT_from_dataReturnOut_SIZE(0);
+            Fw::Buffer file = this->fromPortHistory_fileOut->at(0).fwBuffer;
+            ASSERT_EQ(file.getData(), bytes);
+            this->invoke_to_fileBufferReturnIn(0, file);
+        }
+        // The original buffer comes back exactly once, intact, with the context it arrived with
+        ASSERT_from_dataReturnOut_SIZE(1);
+        ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getData(), bytes);
+        ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getSize(), size);
+        ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).context.get_apid(), apid);
+        this->clearHistory();
+    }
+}
+
 void CfsRouterTester ::testLiteralChecksumVector()
 {
     // Hand-computed per CFE_MSG: XOR of the complete packet seeded with 0xFF is zero.

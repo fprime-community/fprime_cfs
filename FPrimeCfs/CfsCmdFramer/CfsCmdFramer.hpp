@@ -13,8 +13,6 @@ namespace FPrimeCfs {
 //! Size in bytes of the cFS command secondary header ({U8 FunctionCode, U8 Checksum})
 constexpr FwSizeType CFS_CMD_FRAMER_SEC_HDR_SIZE = 2;
 
-//! Size in bytes of the CCSDS space packet primary header
-constexpr FwSizeType CFS_CMD_FRAMER_SPACE_PACKET_HEADER_SIZE = 6;
 
 class CfsCmdFramer final : public CfsCmdFramerComponentBase {
   public:
@@ -53,8 +51,6 @@ class CfsCmdFramer final : public CfsCmdFramerComponentBase {
 
     //! Compute the cFS command checksum over the predicted final space packet:
     //! the primary header the downstream space packet framer is expected to
-    //! write, the secondary header (with a zero checksum field), and the payload
-    U8 computeChecksum(const Fw::Buffer& data, const ComCfg::FrameContext& context) const;
 };
 
 }  // namespace FPrimeCfs

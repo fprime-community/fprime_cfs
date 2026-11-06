@@ -20,6 +20,7 @@ register_fprime_module(
     DEPENDS
         Fw_DataStructures
         FPrimeCfs_Ports
+        FPrimeCfs_Types
 )
 
 ### Unit Tests ###

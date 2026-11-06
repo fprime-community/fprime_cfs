@@ -5,8 +5,7 @@
 
 #include "FPrimeCfs/CfsCmdFramer/CfsCmdFramer.hpp"
 #include "Fw/FPrimeBasicTypes.hpp"
-#include "Svc/Ccsds/Types/FppConstantsAc.hpp"
-#include "Svc/Ccsds/Types/SpacePacketHeaderSerializableAc.hpp"
+#include "FPrimeCfs/Types/CfsChecksum.hpp"
 #include <cstring>
 #include <limits>
 
@@ -43,13 +42,15 @@ void CfsCmdFramer ::dataIn_handler(FwIndexType portNum, Fw::Buffer &data, const 
         return;
     }
 
-    // cFS command secondary header: function code (from the frame context), then checksum
+    // cFS command secondary header: function code (from the frame context), then the checksum
+    // computed over the predicted primary header and the whole packet with the checksum byte zero
     wrapped.getData()[0] = context.get_functionCode();
-    wrapped.getData()[1] = this->computeChecksum(data, context);
+    wrapped.getData()[1] = 0;
     if (data.getSize() > 0)
     {
         (void)std::memcpy(&wrapped.getData()[CFS_CMD_FRAMER_SEC_HDR_SIZE], data.getData(), data.getSize());
     }
+    wrapped.getData()[1] = CfsChecksum::compute(context, wrapped.getData(), wrappedSize);
     wrapped.setSize(static_cast<Fw::Buffer::SizeType>(wrappedSize));
 
     ComCfg::FrameContext wrappedContext = context;
@@ -72,43 +73,6 @@ void CfsCmdFramer ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer &frameB
 {
     // dataReturnIn is the allocated buffer coming back from the dataOut port
     this->bufferDeallocate_out(0, frameBuffer);
-}
-
-// ----------------------------------------------------------------------
-// Helpers
-// ----------------------------------------------------------------------
-
-U8 CfsCmdFramer ::computeChecksum(const Fw::Buffer &data, const ComCfg::FrameContext &context) const
-{
-    // The cFS checksum convention (CFE_MSG): the XOR of every byte of the
-    // complete packet, seeded with 0xFF, must equal zero. The primary header is
-    // written downstream, so its expected contents are predicted here: PVN 0,
-    // packet type 1 (command), secondary header flag set, the APID and sequence
-    // count from the frame context, sequence flags 0b11 (unsegmented), and the
-    // standard length field (total bytes after the primary header, minus one)
-    const FwSizeType packetDataLength     = data.getSize() + CFS_CMD_FRAMER_SEC_HDR_SIZE - 1;
-    const U16        packetIdentification = static_cast<U16>(
-        (static_cast<U16>(context.get_apid()) & Svc::Ccsds::SpacePacketSubfields::ApidMask) |
-        (1 << Svc::Ccsds::SpacePacketSubfields::SecHdrOffset) | (1 << Svc::Ccsds::SpacePacketSubfields::PktTypeOffset));
-    const U16 packetSequenceControl =
-        static_cast<U16>((0x3 << Svc::Ccsds::SpacePacketSubfields::SeqFlagsOffset) |
-                         (context.get_sequenceCount() & Svc::Ccsds::SpacePacketSubfields::SeqCountMask));
-    const U8 header[CFS_CMD_FRAMER_SPACE_PACKET_HEADER_SIZE] = {
-        static_cast<U8>(packetIdentification >> 8),      static_cast<U8>(packetIdentification & 0xFF),
-        static_cast<U8>(packetSequenceControl >> 8),     static_cast<U8>(packetSequenceControl & 0xFF),
-        static_cast<U8>((packetDataLength >> 8) & 0xFF), static_cast<U8>(packetDataLength & 0xFF)};
-
-    U8 checksum = 0xFF;
-    for (FwSizeType i = 0; i < CFS_CMD_FRAMER_SPACE_PACKET_HEADER_SIZE; i++)
-    {
-        checksum ^= header[i];
-    }
-    checksum ^= context.get_functionCode();
-    for (FwSizeType i = 0; i < data.getSize(); i++)
-    {
-        checksum ^= data.getData()[i];
-    }
-    return checksum;
 }
 
 } // namespace FPrimeCfs
