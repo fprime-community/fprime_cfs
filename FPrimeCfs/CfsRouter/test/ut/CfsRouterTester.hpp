@@ -77,6 +77,11 @@ public:
     //! Randomized routing across all categories returns every buffer
     void testRandomized();
 
+    //! Malformed-packet fuzz: random sizes (short/oversized headers), corrupt checksums,
+    //! type-mismatched APIDs, arbitrary APIDs; every packet is routed or rejected with at
+    //! most one diagnostic and the original buffer always comes back exactly once
+    void testMalformedFuzz();
+
 private:
     // ----------------------------------------------------------------------
     // Helpers

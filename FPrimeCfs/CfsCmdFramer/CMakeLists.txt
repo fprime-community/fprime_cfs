@@ -15,7 +15,7 @@ register_fprime_module(
     SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/CfsCmdFramer.cpp"
     DEPENDS
-        Svc_Ccsds_Types
+        FPrimeCfs_Types
 )
 
 ### Unit Tests ###

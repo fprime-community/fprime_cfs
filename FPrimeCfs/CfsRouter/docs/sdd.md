@@ -54,8 +54,9 @@ unknown route).
 Command packets (frame context `pktType == SPP_COMMAND`) must carry the 2-byte cFS command secondary header
 (function code, checksum). Per `CFE_MSG` conventions the XOR of every byte of the space packet (primary header,
 secondary header, payload) with `0xFF` is zero for a valid command. The primary header was consumed by the deframer,
-so it is reconstructed from the frame context (APID, sequence count, length) for the computation. Commands failing
-the check are dropped with `BadChecksum` before any route lookup.
+so `FPrimeCfs::CfsChecksum` (`FPrimeCfs/Types`, shared with `CfsCmdFramer`) reconstructs it from the frame context
+(APID, sequence flags, sequence count, length) for the computation. Commands failing the check are dropped with
+`BadChecksum` before any route lookup.
 
 ## Buffer ownership
 

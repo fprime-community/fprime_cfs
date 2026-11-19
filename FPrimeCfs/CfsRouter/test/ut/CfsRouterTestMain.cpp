@@ -136,6 +136,16 @@ TEST(Random, Routing)
     tester.testRandomized();
 }
 
+TEST(Random, MalformedFuzz)
+{
+    COMMENT("Malformed packets (short/oversized headers, bad checksums, type-mismatched and arbitrary APIDs) are "
+            "routed or rejected with at most one diagnostic, never forwarded unverified, and always returned once");
+    REQUIREMENT("FPRIMECFS-CFSROUTER-001a");
+    REQUIREMENT("FPRIMECFS-CFSROUTER-010");
+    FPrimeCfs::CfsRouterTester tester;
+    tester.testMalformedFuzz();
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

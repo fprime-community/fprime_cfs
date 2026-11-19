@@ -46,6 +46,14 @@ TEST(OffNominal, AllocationFailure)
     tester.testAllocationFailure();
 }
 
+TEST(OffNominal, CfsDataAllocationFailure)
+{
+    COMMENT("An undersized allocation drops raw cfsDataIn data and returns it with its context");
+    REQUIREMENT("FPRIMECFS-CFSAPPBRIDGE-004");
+    FPrimeCfs::CfsAppBridgeTester tester;
+    tester.testCfsDataAllocationFailure();
+}
+
 TEST(Nominal, DataReturn)
 {
     COMMENT("dataReturnIn deallocates the outgoing buffer");

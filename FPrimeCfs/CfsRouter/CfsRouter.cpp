@@ -4,6 +4,7 @@
 // ======================================================================
 
 #include "FPrimeCfs/CfsRouter/CfsRouter.hpp"
+#include "FPrimeCfs/Types/CfsChecksum.hpp"
 #include "Fw/FPrimeBasicTypes.hpp"
 
 namespace FPrimeCfs
@@ -144,24 +145,8 @@ const CfsRouteEntry *CfsRouter ::findRoute(ComCfg::Apid::T apid, bool isCommand,
 
 U8 CfsRouter ::computeChecksumResidual(const Fw::Buffer &data, const ComCfg::FrameContext &context)
 {
-    // Per CFE_MSG conventions: XOR of every space packet byte with 0xFF equals zero when valid.
-    // The primary header was consumed upstream; reconstruct it (cFS command packet) from the context.
-    const U16        apid          = static_cast<U16>(context.get_apid());
-    const U16        sequenceCount = context.get_sequenceCount();
-    const FwSizeType lengthToken   = data.getSize() - 1;
-    U8               residual      = 0xFF;
-    residual ^= static_cast<U8>(0x18 | ((apid >> 8) & 0x07));
-    residual ^= static_cast<U8>(apid & 0xFF);
-    residual ^= static_cast<U8>(0xC0 | ((sequenceCount >> 8) & 0x3F));
-    residual ^= static_cast<U8>(sequenceCount & 0xFF);
-    residual ^= static_cast<U8>((lengthToken >> 8) & 0xFF);
-    residual ^= static_cast<U8>(lengthToken & 0xFF);
-    const U8 *const bytes = data.getData();
-    for (FwSizeType i = 0; i < data.getSize(); i++)
-    {
-        residual ^= bytes[i];
-    }
-    return residual;
+    // The primary header was consumed upstream; CfsChecksum predicts it from the context
+    return CfsChecksum::compute(context, data.getData(), data.getSize());
 }
 
 void CfsRouter ::returnData(Fw::Buffer &data, const ComCfg::FrameContext &context)

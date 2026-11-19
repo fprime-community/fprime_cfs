@@ -148,6 +148,29 @@ void CfsAppBridgeTester ::testAllocationFailure()
     ASSERT_EQ(this->fromPortHistory_bufferReturnOut->at(0).fwBuffer.getData(), payload);
 }
 
+void CfsAppBridgeTester ::testCfsDataAllocationFailure()
+{
+    U8                   payload[16] = {};
+    Fw::Buffer           data(payload, sizeof(payload));
+    ComCfg::FrameContext context;
+    context.set_apid(ComCfg::Apid::FW_PACKET_HAND);
+    context.set_functionCode(0x42);
+
+    this->m_useUndersizedAlloc = true;
+    this->invoke_to_cfsDataIn(0, data, context);
+    this->m_useUndersizedAlloc = false;
+
+    ASSERT_from_dataOut_SIZE(0);
+    ASSERT_EVENTS_AllocationFailed_SIZE(1);
+    ASSERT_EVENTS_AllocationFailed(0, sizeof(payload));
+    // The undersized allocation is deallocated; the source's buffer and context still come back
+    ASSERT_from_bufferDeallocate_SIZE(1);
+    ASSERT_from_cfsDataReturnOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_cfsDataReturnOut->at(0).data.getData(), payload);
+    ASSERT_EQ(this->fromPortHistory_cfsDataReturnOut->at(0).context.get_apid(), ComCfg::Apid::FW_PACKET_HAND);
+    ASSERT_EQ(this->fromPortHistory_cfsDataReturnOut->at(0).context.get_functionCode(), 0x42);
+}
+
 void CfsAppBridgeTester ::testDataReturn()
 {
     U8                   data[8] = {};
